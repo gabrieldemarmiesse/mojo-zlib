@@ -57,6 +57,28 @@ The `wbits` parameter controls compression format:
 - Negative values (-9 to -15): raw deflate format  
 - Values 25-31: gzip format
 
+### Python-Compatible Decompression Object Attributes
+
+The `Decompress` struct provides Python-compatible attributes via getter functions:
+- `get_unused_data() -> List[UInt8]` - Returns data that was not consumed by decompression (after end-of-stream)
+- `get_unconsumed_tail() -> List[UInt8]` - Returns input data that has not yet been consumed by decompression  
+- `get_eof() -> Bool` - Returns True if the end-of-stream marker has been reached
+
+**Usage Example:**
+```mojo
+var decompressor = zlib.decompressobj()
+var result = decompressor.decompress(compressed_data_with_extra)
+
+# Check if we reached end of stream
+if decompressor.get_eof():
+    # Any extra data after the compressed stream
+    var unused = decompressor.get_unused_data()
+    print("Found", len(unused), "bytes of unused data")
+
+# Check what input data hasn't been processed yet
+var unconsumed = decompressor.get_unconsumed_tail()
+```
+
 ## String to Bytes Conversion
 
 When converting strings to bytes, use the `String.as_bytes()` method instead of manually iterating:
@@ -186,3 +208,10 @@ from memory import memset_zero, UnsafePointer
 from .constants import ZStream, Z_OK, ...
 from .zlib_shared_object import get_zlib_dl_handle
 ```
+
+## LLM-friendly Documentation of Mojo, don't hesistate to use it!
+
+- Docs index: <https://docs.modular.com/llms.txt>
+- Mojo API docs: <https://docs.modular.com/llms-mojo.txt>
+- Python API docs: <https://docs.modular.com/llms-python.txt>
+- Comprehensive docs: <https://docs.modular.com/llms-full.txt>
