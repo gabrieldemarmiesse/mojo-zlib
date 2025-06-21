@@ -89,7 +89,7 @@ fn decompressobj(wbits: Int = MAX_WBITS) raises -> Decompress:
     return Decompress(wbits)
 
 
-struct Decompress(Copyable, Movable):
+struct Decompress(Movable):
     """A streaming decompressor that can decompress data in chunks to avoid large memory usage.
 
     This struct matches Python's zlib decompression object API.
@@ -106,7 +106,7 @@ struct Decompress(Copyable, Movable):
     var output_pos: Int
     var output_available: Int
     var wbits: Int
-    
+
     # Python-compatible attributes
     var unused_data: List[UInt8]
     var unconsumed_tail: List[UInt8]
@@ -145,7 +145,7 @@ struct Decompress(Copyable, Movable):
         self.output_pos = 0
         self.output_available = 0
         self.wbits = wbits
-        
+
         # Initialize Python-compatible attributes
         self.unused_data = List[UInt8]()
         self.unconsumed_tail = List[UInt8]()
@@ -171,63 +171,6 @@ struct Decompress(Copyable, Movable):
             log_zlib_result(init_res, compressing=False)
 
         self.initialized = True
-
-    fn __copyinit__(out self, existing: Self):
-        """Copy constructor - creates a fresh decompressor."""
-        # Since copying mid-stream state is complex, just create a fresh instance
-        self.handle = existing.handle  # Share the same DLHandle
-        self.inflate_fn = existing.inflate_fn
-        self.inflateEnd = existing.inflateEnd
-
-        self.stream = ZStream(
-            next_in=UnsafePointer[Bytef](),
-            avail_in=0,
-            total_in=0,
-            next_out=UnsafePointer[Bytef](),
-            avail_out=0,
-            total_out=0,
-            msg=UnsafePointer[UInt8](),
-            state=UnsafePointer[UInt8](),
-            zalloc=UnsafePointer[UInt8](),
-            zfree=UnsafePointer[UInt8](),
-            opaque=UnsafePointer[UInt8](),
-            data_type=0,
-            adler=0,
-            reserved=0,
-        )
-
-        self.initialized = False
-        self.finished = False
-        self.input_buffer = List[UInt8]()
-        self.output_buffer = List[UInt8](capacity=65536)
-        self.output_buffer.resize(65536, 0)
-        self.output_pos = 0
-        self.output_available = 0
-        self.wbits = existing.wbits
-        
-        # Initialize Python-compatible attributes
-        self.unused_data = List[UInt8]()
-        self.unconsumed_tail = existing.unconsumed_tail
-        self.eof = False
-
-    fn __moveinit__(out self, owned existing: Self):
-        """Move constructor."""
-        self.stream = existing.stream
-        self.handle = existing.handle
-        self.inflate_fn = existing.inflate_fn
-        self.inflateEnd = existing.inflateEnd
-        self.initialized = existing.initialized
-        self.finished = existing.finished
-        self.input_buffer = existing.input_buffer^
-        self.output_buffer = existing.output_buffer^
-        self.output_pos = existing.output_pos
-        self.output_available = existing.output_available
-        self.wbits = existing.wbits
-        
-        # Move Python-compatible attributes
-        self.unused_data = existing.unused_data^
-        self.unconsumed_tail = existing.unconsumed_tail^
-        self.eof = existing.eof
 
     fn feed_input(mut self, data: Span[Byte]):
         """Feed compressed input data to the decompressor."""
@@ -262,7 +205,11 @@ struct Decompress(Copyable, Movable):
             # Any remaining input becomes unused_data
             if Int(self.stream.avail_in) > 0:
                 self.unused_data.clear()
-                self.unused_data.extend(self.input_buffer[len(self.input_buffer) - Int(self.stream.avail_in):])
+                self.unused_data.extend(
+                    self.input_buffer[
+                        len(self.input_buffer) - Int(self.stream.avail_in) :
+                    ]
+                )
         elif result != Z_OK:
             log_zlib_result(result, compressing=False)
 
@@ -273,14 +220,14 @@ struct Decompress(Copyable, Movable):
 
         # Update unconsumed_tail and remove consumed input
         var consumed = len(self.input_buffer) - Int(self.stream.avail_in)
-        
+
         # Remove consumed input from buffer
         if consumed > 0:
             var new_input = List[UInt8]()
             for i in range(consumed, len(self.input_buffer)):
                 new_input.append(self.input_buffer[i])
             self.input_buffer = new_input^
-        
+
         # unconsumed_tail always contains what's left in input_buffer
         self.unconsumed_tail.clear()
         self.unconsumed_tail.extend(self.input_buffer)

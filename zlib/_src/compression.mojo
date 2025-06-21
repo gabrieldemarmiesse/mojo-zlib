@@ -28,6 +28,8 @@ from .constants import (
 )
 from .zlib_shared_object import get_zlib_dl_handle
 
+alias BUFFER_SIZE = 65536  # 64KB
+
 
 fn compress(
     data: Span[Byte], /, level: Int = -1, wbits: Int = MAX_WBITS
@@ -86,7 +88,7 @@ fn compressobj(level: Int = -1, wbits: Int = MAX_WBITS) raises -> Compress:
     return Compress(level, wbits)
 
 
-struct Compress(Copyable, Movable):
+struct Compress(Movable):
     """A streaming compressor that can compress data in chunks.
 
     This struct matches Python's zlib compression object API.
@@ -131,8 +133,8 @@ struct Compress(Copyable, Movable):
         self.level = level
         self.wbits = wbits
         # Use 64KB output buffer
-        self.output_buffer = List[UInt8](capacity=65536)
-        self.output_buffer.resize(65536, 0)
+        self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
+        self.output_buffer.resize(BUFFER_SIZE, 0)
 
     fn initialize(mut self) raises:
         """Initialize the zlib stream for compression."""
@@ -158,49 +160,6 @@ struct Compress(Copyable, Movable):
             log_zlib_result(init_res, compressing=True)
 
         self.initialized = True
-
-    fn __copyinit__(out self, existing: Self):
-        """Copy constructor - creates a fresh compressor."""
-        # Since copying mid-stream state is complex, just create a fresh instance
-        self.handle = existing.handle  # Share the same DLHandle
-        self.deflate_fn = existing.deflate_fn
-        self.deflateEnd = existing.deflateEnd
-
-        self.stream = ZStream(
-            next_in=UnsafePointer[Bytef](),
-            avail_in=0,
-            total_in=0,
-            next_out=UnsafePointer[Bytef](),
-            avail_out=0,
-            total_out=0,
-            msg=UnsafePointer[UInt8](),
-            state=UnsafePointer[UInt8](),
-            zalloc=UnsafePointer[UInt8](),
-            zfree=UnsafePointer[UInt8](),
-            opaque=UnsafePointer[UInt8](),
-            data_type=0,
-            adler=0,
-            reserved=0,
-        )
-
-        self.initialized = False
-        self.finished = False
-        self.level = existing.level
-        self.wbits = existing.wbits
-        self.output_buffer = List[UInt8](capacity=65536)
-        self.output_buffer.resize(65536, 0)
-
-    fn __moveinit__(out self, owned existing: Self):
-        """Move constructor."""
-        self.stream = existing.stream
-        self.handle = existing.handle
-        self.deflate_fn = existing.deflate_fn
-        self.deflateEnd = existing.deflateEnd
-        self.initialized = existing.initialized
-        self.finished = existing.finished
-        self.level = existing.level
-        self.wbits = existing.wbits
-        self.output_buffer = existing.output_buffer^
 
     fn compress(mut self, data: Span[Byte]) raises -> List[UInt8]:
         """Compress data incrementally.
