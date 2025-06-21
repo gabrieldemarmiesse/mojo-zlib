@@ -191,18 +191,6 @@ struct Compress(Copyable, Movable):
         self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
         self.output_buffer.resize(BUFFER_SIZE, 0)
 
-    fn __moveinit__(out self, owned existing: Self):
-        """Move constructor."""
-        self.stream = existing.stream
-        self.handle = existing.handle
-        self.deflate_fn = existing.deflate_fn
-        self.deflateEnd = existing.deflateEnd
-        self.initialized = existing.initialized
-        self.finished = existing.finished
-        self.level = existing.level
-        self.wbits = existing.wbits
-        self.output_buffer = existing.output_buffer^
-
     fn compress(mut self, data: Span[Byte]) raises -> List[UInt8]:
         """Compress data incrementally.
 

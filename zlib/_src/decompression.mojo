@@ -210,25 +210,6 @@ struct Decompress(Copyable, Movable):
         self.unconsumed_tail = existing.unconsumed_tail
         self.eof = False
 
-    fn __moveinit__(out self, owned existing: Self):
-        """Move constructor."""
-        self.stream = existing.stream
-        self.handle = existing.handle
-        self.inflate_fn = existing.inflate_fn
-        self.inflateEnd = existing.inflateEnd
-        self.initialized = existing.initialized
-        self.finished = existing.finished
-        self.input_buffer = existing.input_buffer^
-        self.output_buffer = existing.output_buffer^
-        self.output_pos = existing.output_pos
-        self.output_available = existing.output_available
-        self.wbits = existing.wbits
-        
-        # Move Python-compatible attributes
-        self.unused_data = existing.unused_data^
-        self.unconsumed_tail = existing.unconsumed_tail^
-        self.eof = existing.eof
-
     fn feed_input(mut self, data: Span[Byte]):
         """Feed compressed input data to the decompressor."""
         for byte in data:
