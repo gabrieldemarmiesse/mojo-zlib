@@ -106,6 +106,11 @@ struct Decompress(Copyable, Movable):
     var output_pos: Int
     var output_available: Int
     var wbits: Int
+    
+    # Python-compatible attributes
+    var unused_data: List[UInt8]
+    var unconsumed_tail: List[UInt8]
+    var eof: Bool
 
     fn __init__(out self, wbits: Int = MAX_WBITS) raises:
         self.handle = get_zlib_dl_handle()
@@ -140,6 +145,11 @@ struct Decompress(Copyable, Movable):
         self.output_pos = 0
         self.output_available = 0
         self.wbits = wbits
+        
+        # Initialize Python-compatible attributes
+        self.unused_data = List[UInt8]()
+        self.unconsumed_tail = List[UInt8]()
+        self.eof = False
 
     fn initialize(mut self) raises:
         """Initialize the zlib stream for decompression."""
@@ -194,6 +204,11 @@ struct Decompress(Copyable, Movable):
         self.output_pos = 0
         self.output_available = 0
         self.wbits = existing.wbits
+        
+        # Initialize Python-compatible attributes
+        self.unused_data = List[UInt8]()
+        self.unconsumed_tail = existing.unconsumed_tail
+        self.eof = False
 
     fn __moveinit__(out self, owned existing: Self):
         """Move constructor."""
@@ -208,6 +223,11 @@ struct Decompress(Copyable, Movable):
         self.output_pos = existing.output_pos
         self.output_available = existing.output_available
         self.wbits = existing.wbits
+        
+        # Move Python-compatible attributes
+        self.unused_data = existing.unused_data^
+        self.unconsumed_tail = existing.unconsumed_tail^
+        self.eof = existing.eof
 
     fn feed_input(mut self, data: Span[Byte]):
         """Feed compressed input data to the decompressor."""
@@ -238,6 +258,11 @@ struct Decompress(Copyable, Movable):
 
         if result == Z_STREAM_END:
             self.finished = True
+            self.eof = True
+            # Any remaining input becomes unused_data
+            if Int(self.stream.avail_in) > 0:
+                self.unused_data.clear()
+                self.unused_data.extend(self.input_buffer[len(self.input_buffer) - Int(self.stream.avail_in):])
         elif result != Z_OK:
             log_zlib_result(result, compressing=False)
 
@@ -246,13 +271,19 @@ struct Decompress(Copyable, Movable):
             self.stream.avail_out
         )
 
-        # Remove consumed input
+        # Update unconsumed_tail and remove consumed input
         var consumed = len(self.input_buffer) - Int(self.stream.avail_in)
+        
+        # Remove consumed input from buffer
         if consumed > 0:
             var new_input = List[UInt8]()
             for i in range(consumed, len(self.input_buffer)):
                 new_input.append(self.input_buffer[i])
             self.input_buffer = new_input^
+        
+        # unconsumed_tail always contains what's left in input_buffer
+        self.unconsumed_tail.clear()
+        self.unconsumed_tail.extend(self.input_buffer)
 
         return self.output_available > 0
 
@@ -300,6 +331,8 @@ struct Decompress(Copyable, Movable):
         """
         if len(data) > 0:
             self.feed_input(data)
+            # Update unconsumed_tail to include new data
+            self.unconsumed_tail.extend(data)
 
         if max_length == -1:
             # Return all available data
@@ -341,6 +374,42 @@ struct Decompress(Copyable, Movable):
             A new Decompress object with the same configuration.
         """
         return Decompress(self.wbits)
+
+    fn get_unused_data(self) -> List[UInt8]:
+        """Return a bytes object containing any data that was not consumed by the last decompress call.
+        
+        This matches Python's zlib decompression object unused_data attribute.
+        
+        Returns:
+            Unused input data that was not consumed.
+        """
+        var result = List[UInt8]()
+        for byte in self.unused_data:
+            result.append(byte)
+        return result
+
+    fn get_unconsumed_tail(self) -> List[UInt8]:
+        """Return a bytes object containing any data in the input buffer that has not yet been consumed.
+        
+        This matches Python's zlib decompression object unconsumed_tail attribute.
+        
+        Returns:
+            Unconsumed input data.
+        """
+        var result = List[UInt8]()
+        for byte in self.unconsumed_tail:
+            result.append(byte)
+        return result
+
+    fn get_eof(self) -> Bool:
+        """Return True if the end-of-stream marker has been reached.
+        
+        This matches Python's zlib decompression object eof attribute.
+        
+        Returns:
+            True if end-of-stream marker has been reached.
+        """
+        return self.eof
 
     fn __del__(owned self):
         if self.initialized:
