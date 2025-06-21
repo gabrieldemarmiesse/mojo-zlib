@@ -15,8 +15,7 @@ List is auto-cast to Span when calling a function. So it's not necessary to impl
 
 In docstrings, sentences to describe a function or an argument should always end with a "."
 
-In Mojo `Byte` is an alias for `UInt8`.
-
+In Mojo `Byte` is an alias for `UInt8`. Prefer using `UInt8`.
 
 In Mojo, declaring a local variable with `var` is valid. But the author prefer using implicit declaring of local variable, so the `var` is not needed. The only place it's needed is to declare struct attributes.
 
@@ -132,13 +131,13 @@ Use `to_py_bytes()` utility function from `zlib._src.utils_testing` to convert M
 ## Additional Utility Functions in `utils_testing.mojo`
 
 **Data Conversion:**
-- `to_py_bytes(data: Span[Byte]) -> PythonObject` - Convert Mojo bytes to Python bytes
-- `to_mojo_bytes(some_data: PythonObject) -> List[Byte]` - Convert Python bytes to Mojo bytes  
+- `to_py_bytes(data: Span[UInt8]) -> PythonObject` - Convert Mojo bytes to Python bytes
+- `to_mojo_bytes(some_data: PythonObject) -> List[UInt8]` - Convert Python bytes to Mojo bytes  
 - `to_mojo_string(some_data: PythonObject) -> String` - Convert Python bytes to Mojo String
 
 **Testing Utilities:**
-- `assert_lists_are_equal(list1: List[Byte], list2: List[Byte], message: String)` - Compare two byte lists with detailed error messages
-- `test_mojo_vs_python_decompress(test_data: Span[Byte], wbits: Int = 15, bufsize: Int = 16384, message: String)` - Helper to test Mojo vs Python decompress compatibility
+- `assert_lists_are_equal(list1: List[UInt8], list2: List[UInt8], message: String)` - Compare two byte lists with detailed error messages
+- `test_mojo_vs_python_decompress(test_data: Span[UInt8], wbits: Int = 15, bufsize: Int = 16384, message: String)` - Helper to test Mojo vs Python decompress compatibility
 
 **Usage Example:**
 ```mojo

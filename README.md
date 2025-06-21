@@ -52,14 +52,14 @@ fn main() raises:
 
 | Function | Signature |
 |----------|-----------|
-| [`compress`](#compress) | `fn compress(data: Span[Byte], level: Int32 = -1, wbits: Int32 = MAX_WBITS) raises -> List[Byte]` |
+| [`compress`](#compress) | `fn compress(data: Span[UInt8], level: Int32 = -1, wbits: Int32 = MAX_WBITS) raises -> List[UInt8]` |
 | [`compressobj`](#compressobj) | `fn compressobj(level: Int32 = -1, method: Int32 = Z_DEFLATED, wbits: Int32 = MAX_WBITS, memLevel: Int32 = DEF_MEM_LEVEL, strategy: Int32 = Z_DEFAULT_STRATEGY) raises -> Compress` |
 
 ### Decompression Functions
 
 | Function | Signature |
 |----------|-----------|
-| [`decompress`](#decompress) | `fn decompress(data: Span[Byte], wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE) raises -> List[Byte]` |
+| [`decompress`](#decompress) | `fn decompress(data: Span[UInt8], wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE) raises -> List[UInt8]` |
 | [`decompressobj`](#decompressobj) | `fn decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress` |
 
 ### Checksum Functions
@@ -83,7 +83,7 @@ Note that those are implemented in Mojo and thus do not require `libz.so` to be 
 ### compress
 
 ```mojo
-fn compress(data: Span[Byte], level: Int32 = -1, wbits: Int32 = MAX_WBITS) raises -> List[Byte]
+fn compress(data: Span[UInt8], level: Int32 = -1, wbits: Int32 = MAX_WBITS) raises -> List[UInt8]
 ```
 
 Compresses the bytes in data, returning a `List[UInt8]` containing compressed data.
@@ -100,7 +100,7 @@ Compresses the bytes in data, returning a `List[UInt8]` containing compressed da
   - `-9` to `-15`: raw deflate format without header or checksum
   - `16 + (9 to 15)`: gzip format with header and checksum
 
-**Returns:** Compressed data as `List[Byte]`
+**Returns:** Compressed data as `List[UInt8]`
 
 **Raises:** `Error` if compression fails or invalid parameters are provided
 
@@ -128,7 +128,7 @@ The returned object also has `flush()` methods. This allows for incremental comp
 ### decompress
 
 ```mojo
-fn decompress(data: Span[Byte], wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE) raises -> List[Byte]
+fn decompress(data: Span[UInt8], wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE) raises -> List[UInt8]
 ```
 
 Decompresses the bytes in data, returning a bytes object containing the uncompressed data.
@@ -142,7 +142,7 @@ Decompresses the bytes in data, returning a bytes object containing the uncompre
   - Values `32-47`: automatic header detection (zlib or gzip)
 - `bufsize`: Initial size of output buffer for decompressed data (default: 16384)
 
-**Returns:** The decompressed data as `List[Byte]`
+**Returns:** The decompressed data as `List[UInt8]`
 
 **Raises:** `Error` if the compressed data is invalid, corrupted, or incomplete
 
@@ -205,7 +205,7 @@ A compression object for compressing data incrementally. Allows compression of d
 
 #### compress()
 ```mojo
-fn compress(mut self, data: Span[Byte]) raises -> List[UInt8]
+fn compress(mut self, data: Span[UInt8]) raises -> List[UInt8]
 ```
 
 Compress data, returning a `List[UInt8]` containing compressed data for at least part of the data in data. This data should be concatenated to the output produced by any preceding calls to the `compress()` method. Some input may be kept in internal buffers for later processing.
@@ -242,7 +242,7 @@ A decompression object for decompressing data incrementally. Allows decompressio
 
 #### decompress()
 ```mojo
-fn decompress(mut self, data: Span[Byte], max_length: Int = -1) raises -> List[UInt8]
+fn decompress(mut self, data: Span[UInt8], max_length: Int = -1) raises -> List[UInt8]
 ```
 
 Decompress data, returning a bytes object containing uncompressed data corresponding to at least part of the data in data. This data should be concatenated to the output produced by any preceding calls to the `decompress()` method.

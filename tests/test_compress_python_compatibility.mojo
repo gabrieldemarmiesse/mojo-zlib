@@ -14,13 +14,13 @@ def test_compress_empty_data_python_compatibility():
     py_zlib = Python.import_module("zlib")
 
     # Test empty data
-    empty_data = List[Byte]()
+    empty_data = List[UInt8]()
     mojo_result = zlib.compress(empty_data)
     py_empty_bytes = to_py_bytes(empty_data)
     py_result = py_zlib.compress(py_empty_bytes)
 
     # Convert Python bytes result to list for comparison
-    py_result_list = List[Byte]()
+    py_result_list = List[UInt8]()
     for i in range(len(py_result)):
         py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -49,7 +49,7 @@ def test_compress_hello_python_compatibility():
     py_result = py_zlib.compress(py_hello_bytes)
 
     # Convert Python bytes result to list for comparison
-    py_result_list = List[Byte]()
+    py_result_list = List[UInt8]()
     for i in range(len(py_result)):
         py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -88,7 +88,7 @@ def test_compress_with_compression_levels_python_compatibility():
         py_result = py_zlib.compress(py_data_bytes, level)
 
         # Convert Python bytes result to list for comparison
-        py_result_list = List[Byte]()
+        py_result_list = List[UInt8]()
         for i in range(len(py_result)):
             py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -123,7 +123,7 @@ def test_compress_with_wbits_python_compatibility():
         py_result = py_zlib.compress(py_data_bytes, wbits=wbits)
 
         # Convert Python bytes result to list for comparison
-        py_result_list = List[Byte]()
+        py_result_list = List[UInt8]()
         for i in range(len(py_result)):
             py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -151,7 +151,7 @@ def test_compress_random_data_python_compatibility():
     seed(42)
 
     # Generate random test data
-    test_data = List[Byte]()
+    test_data = List[UInt8]()
     for _ in range(100):
         test_data.append(Byte(random_ui64(0, 255)))
 
@@ -160,7 +160,7 @@ def test_compress_random_data_python_compatibility():
     py_result = py_zlib.compress(py_data_bytes)
 
     # Convert Python bytes result to list for comparison
-    py_result_list = List[Byte]()
+    py_result_list = List[UInt8]()
     for i in range(len(py_result)):
         py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -190,7 +190,7 @@ def test_compress_large_repetitive_data_python_compatibility():
     py_result = py_zlib.compress(py_data_bytes)
 
     # Convert Python bytes result to list for comparison
-    py_result_list = List[Byte]()
+    py_result_list = List[UInt8]()
     for i in range(len(py_result)):
         py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -219,16 +219,14 @@ def test_compress_binary_data_python_compatibility():
     py_zlib = Python.import_module("zlib")
 
     # Binary data with all byte values 0-255
-    binary_data = List[Byte]()
-    for i in range(256):
-        binary_data.append(Byte(i % 256))
+    var binary_data = [UInt8(i) for i in range(256)]
 
     mojo_result = zlib.compress(binary_data)
     py_data_bytes = to_py_bytes(binary_data)
     py_result = py_zlib.compress(py_data_bytes)
 
     # Convert Python bytes result to list for comparison
-    py_result_list = List[Byte]()
+    py_result_list = List[UInt8]()
     for i in range(len(py_result)):
         py_result_list.append(UInt8(Int(py_result[i])))
 
@@ -256,7 +254,7 @@ def test_compress_multiple_random_seeds_python_compatibility():
         seed(test_seed)
 
         # Generate random test data
-        test_data = List[Byte]()
+        test_data = List[UInt8]()
         for _ in range(50):
             test_data.append(Byte(random_ui64(0, 255)))
 
@@ -265,7 +263,7 @@ def test_compress_multiple_random_seeds_python_compatibility():
         py_result = py_zlib.compress(py_data_bytes)
 
         # Convert Python bytes result to list for comparison
-        py_result_list = List[Byte]()
+        py_result_list = List[UInt8]()
         for i in range(len(py_result)):
             py_result_list.append(UInt8(Int(py_result[i])))
 

@@ -23,7 +23,7 @@ def test_decompress_empty_data_python_compatibility():
     py_zlib = Python.import_module("zlib")
 
     # First compress empty data with Python to get valid compressed data
-    empty_data = List[Byte]()
+    empty_data = List[UInt8]()
     py_empty_bytes = to_py_bytes(empty_data)
     py_compressed = py_zlib.compress(py_empty_bytes)
 
@@ -121,9 +121,7 @@ def test_decompress_random_data_python_compatibility():
     seed(42)
 
     # Generate random test data
-    random_data = List[Byte]()
-    for _ in range(200):
-        random_data.append(Byte(random_ui64(0, 255)))
+    var random_data = [UInt8(random_ui64(0, 255)) for _ in range(200)]
 
     test_mojo_vs_python_decompress(
         random_data,
@@ -135,9 +133,7 @@ def test_decompress_binary_data_python_compatibility():
     """Test that our decompress implementation matches Python's with binary data.
     """
     # Binary data with all byte values 0-255
-    binary_data = List[Byte]()
-    for i in range(256):
-        binary_data.append(Byte(i))
+    var binary_data = [UInt8(i) for i in range(256)]
 
     test_mojo_vs_python_decompress(
         binary_data,
