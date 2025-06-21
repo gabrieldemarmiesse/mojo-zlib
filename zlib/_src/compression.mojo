@@ -26,10 +26,9 @@ from .constants import (
     DEF_BUF_SIZE,
     DEF_MEM_LEVEL,
     log_zlib_result,
+    BUFFER_SIZE,
 )
 from .zlib_shared_object import get_zlib_dl_handle
-
-alias BUFFER_SIZE = 65536  # 64KB
 
 
 fn compress(
@@ -274,19 +273,6 @@ struct Compress(Movable):
                 log_zlib_result(deflate_result, compressing=True)
 
         return result
-
-    fn copy(self) raises -> Compress:
-        """Create a copy of the compressor.
-
-        This method matches Python's zlib compression object API.
-        Note: This creates a fresh compressor since copying mid-stream state is complex.
-
-        Returns:
-            A new Compress object with the same configuration.
-        """
-        return Compress(
-            self.level, self.method, self.wbits, self.memLevel, self.strategy
-        )
 
     fn __del__(owned self):
         if self.initialized:

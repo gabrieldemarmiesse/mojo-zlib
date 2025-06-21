@@ -121,55 +121,6 @@ def test_streaming_with_different_wbits():
     )
 
 
-def test_streaming_copy_functionality():
-    """Test the copy functionality of streaming objects."""
-    test_data = "Test data for copy functionality.".as_bytes()
-
-    # Test compressor copy
-    var original_compressor = zlib.compressobj(level=6)
-    var copied_compressor = original_compressor.copy()
-
-    # Both should produce valid compressed data
-    var result1 = (
-        original_compressor.compress(test_data) + original_compressor.flush()
-    )
-    var result2 = (
-        copied_compressor.compress(test_data) + copied_compressor.flush()
-    )
-
-    # Test that both can be decompressed to the original data
-    var decompressed1 = zlib.decompress(result1)
-    var decompressed2 = zlib.decompress(result2)
-
-    assert_lists_are_equal(
-        test_data, decompressed1, "Original compressor should work"
-    )
-    assert_lists_are_equal(
-        test_data, decompressed2, "Copied compressor should work"
-    )
-
-    # Test decompressor copy
-    var compressed_data = zlib.compress(test_data)
-    var original_decompressor = zlib.decompressobj()
-    var copied_decompressor = original_decompressor.copy()
-
-    var decompressed_orig = (
-        original_decompressor.decompress(compressed_data)
-        + original_decompressor.flush()
-    )
-    var decompressed_copy = (
-        copied_decompressor.decompress(compressed_data)
-        + copied_decompressor.flush()
-    )
-
-    assert_lists_are_equal(
-        test_data, decompressed_orig, "Original decompressor should work"
-    )
-    assert_lists_are_equal(
-        test_data, decompressed_copy, "Copied decompressor should work"
-    )
-
-
 def test_streaming_max_length_parameter():
     """Test the max_length parameter in streaming decompression."""
     test_data = "A" * 1000  # Large repetitive data
@@ -195,13 +146,3 @@ def test_streaming_max_length_parameter():
         full_result,
         "Combined partial results should match original",
     )
-
-
-def main():
-    """Run all comprehensive streaming tests."""
-    test_streaming_compress_decompress_roundtrip()
-    test_streaming_vs_single_shot_compression()
-    test_streaming_vs_single_shot_decompression()
-    test_streaming_with_different_wbits()
-    test_streaming_copy_functionality()
-    test_streaming_max_length_parameter()

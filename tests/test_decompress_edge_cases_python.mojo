@@ -98,12 +98,3 @@ def test_decompress_unicode_text_python_compatibility():
         unicode_text,
         message="Unicode decompressed data should match Python",
     )
-
-
-def main():
-    """Run all edge case tests with Python validation."""
-    test_decompress_gzip_format_python_compatibility()
-    test_decompress_minimal_window_size_python_compatibility()
-    test_decompress_very_small_buffer_python_compatibility()
-    test_decompress_highly_repetitive_data_python_compatibility()
-    test_decompress_unicode_text_python_compatibility()

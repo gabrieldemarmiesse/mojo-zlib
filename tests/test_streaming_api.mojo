@@ -33,10 +33,6 @@ def test_streaming_decompressor_methods():
         len(flush_result), 0, "Flush on empty decompressor should return empty"
     )
 
-    # Test copy call
-    var decomp_copy = decomp.copy()
-    assert_true(True, "Copy should work without error")
-
 
 def test_compress_struct_methods():
     """Test that Compress struct has the required methods."""
@@ -47,19 +43,7 @@ def test_compress_struct_methods():
     var result = comp.compress(empty_data)
     assert_equal(len(result), 0, "Empty compress should return empty result")
 
-    # Test copy call (before flush)
-    var comp_copy = comp.copy()
-    assert_true(True, "Copy should work without error")
-
     # Test flush call
     var flush_result = comp.flush()
     # Flush might return some data even if no input was given (headers/trailers)
     assert_true(True, "Flush should work without error")
-
-
-def main():
-    """Run all streaming API tests."""
-    test_decompressobj_creation()
-    test_compressobj_creation()
-    test_streaming_decompressor_methods()
-    test_compress_struct_methods()

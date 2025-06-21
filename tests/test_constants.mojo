@@ -87,14 +87,3 @@ def test_constants_used_in_compression():
     assert_equal(
         len(decompressed_raw), len(test_data), "Raw deflate should work"
     )
-
-
-def main():
-    """Run all constant tests."""
-    test_compression_level_constants()
-    test_compression_method_constants()
-    test_flush_mode_constants()
-    test_compression_strategy_constants()
-    test_buffer_and_window_constants()
-    test_version_constants()
-    test_constants_used_in_compression()

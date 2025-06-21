@@ -116,10 +116,3 @@ def test_empty_decompression_attributes():
         len(decompressor.unconsumed_tail), 0, "unconsumed_tail should be empty"
     )
     assert_false(decompressor.eof, "eof should be False")
-
-
-def main():
-    """Run all decompression attribute tests."""
-    test_decompression_object_attributes()
-    test_unconsumed_tail_partial_decompress()
-    test_empty_decompression_attributes()

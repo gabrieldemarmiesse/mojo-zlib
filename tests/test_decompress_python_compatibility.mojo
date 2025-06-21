@@ -132,13 +132,3 @@ fn test_decompress_empty_data_roundtrip() raises:
     var decompressed = zlib.decompress(compressed)
 
     testing.assert_equal(len(decompressed), 0)
-
-
-def main():
-    """Run all Python compatibility tests."""
-    test_decompress_compress_roundtrip()
-    test_decompress_different_compression_levels()
-    test_decompress_large_data_roundtrip()
-    test_decompress_wbits_compatibility()
-    test_decompress_various_data_types()
-    test_decompress_empty_data_roundtrip()

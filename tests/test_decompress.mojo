@@ -193,20 +193,3 @@ fn test_decompress_constants_values() raises:
 
     # Test that DEF_BUF_SIZE is accessible and has the expected value
     testing.assert_equal(zlib.DEF_BUF_SIZE, 16384)
-
-
-def main():
-    """Run all decompress tests."""
-    test_decompress_empty_data()
-    test_decompress_hello_world_zlib()
-    test_decompress_hello_world_gzip()
-    test_decompress_short_string()
-    test_decompress_repeated_pattern()
-    test_decompress_numbers_pattern()
-    test_decompress_binary_data()
-    test_decompress_different_wbits_values()
-    test_decompress_different_buffer_sizes()
-    test_decompress_positional_only_parameter()
-    test_decompress_large_data()
-    test_decompress_edge_cases()
-    test_decompress_constants_values()

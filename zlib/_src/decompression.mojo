@@ -25,6 +25,7 @@ from .constants import (
     MAX_WBITS,
     DEF_BUF_SIZE,
     log_zlib_result,
+    BUFFER_SIZE,
 )
 from .zlib_shared_object import get_zlib_dl_handle
 
@@ -140,8 +141,8 @@ struct Decompress(Movable):
         self.finished = False
         self.input_buffer = List[UInt8]()
         # Use 64KB output buffer to balance memory usage and performance
-        self.output_buffer = List[UInt8](capacity=65536)
-        self.output_buffer.resize(65536, 0)
+        self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
+        self.output_buffer.resize(BUFFER_SIZE, 0)
         self.output_pos = 0
         self.output_available = 0
         self.wbits = wbits
@@ -285,7 +286,7 @@ struct Decompress(Movable):
             # Return all available data
             var result = List[UInt8]()
             while True:
-                var chunk = self.read(65536)  # Read in 64KB chunks
+                var chunk = self.read(BUFFER_SIZE)  # Read in 64KB chunks
                 if len(chunk) == 0:
                     break
                 result += chunk
@@ -305,22 +306,11 @@ struct Decompress(Movable):
         """
         var result = List[UInt8]()
         while not self.is_finished():
-            var chunk = self.read(65536)  # Read in 64KB chunks
+            var chunk = self.read(BUFFER_SIZE)  # Read in 64KB chunks
             if len(chunk) == 0:
                 break
             result += chunk
         return result
-
-    fn copy(self) raises -> Decompress:
-        """Create a copy of the decompressor.
-
-        This method matches Python's zlib decompression object API.
-        Note: This creates a fresh decompressor since copying mid-stream state is complex.
-
-        Returns:
-            A new Decompress object with the same configuration.
-        """
-        return Decompress(self.wbits)
 
     fn __del__(owned self):
         if self.initialized:
