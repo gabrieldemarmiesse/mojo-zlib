@@ -85,7 +85,7 @@ alias Z_BLOCK: Int32 = 5
 alias Z_TREES: Int32 = 6
 
 # Window bits
-alias MAX_WBITS: Int = 15
+alias MAX_WBITS: Int32 = 15
 
 # Buffer size
 alias DEF_BUF_SIZE: Int = 16384
