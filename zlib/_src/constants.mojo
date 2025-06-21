@@ -97,6 +97,8 @@ alias DEF_MEM_LEVEL: Int32 = 8
 alias ZLIB_VERSION: String = "1.2.11"
 alias ZLIB_RUNTIME_VERSION: String = "1.2.11"
 
+alias BUFFER_SIZE = 65536  # 64KB
+
 
 fn log_zlib_result(Z_RES: ffi.c_int, compressing: Bool = True) raises -> None:
     var prefix: String = ""

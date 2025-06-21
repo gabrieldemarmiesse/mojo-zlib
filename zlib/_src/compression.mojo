@@ -26,10 +26,9 @@ from .constants import (
     DEF_BUF_SIZE,
     DEF_MEM_LEVEL,
     log_zlib_result,
+    BUFFER_SIZE,
 )
 from .zlib_shared_object import get_zlib_dl_handle
-
-alias BUFFER_SIZE = 65536  # 64KB
 
 
 fn compress(
