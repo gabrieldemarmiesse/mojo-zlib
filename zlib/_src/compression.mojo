@@ -33,7 +33,7 @@ alias BUFFER_SIZE = 65536  # 64KB
 
 
 fn compress(
-    data: Span[Byte], /, level: Int = -1, wbits: Int = MAX_WBITS
+    data: Span[Byte], /, level: Int = -1, wbits: Int32 = MAX_WBITS
 ) raises -> List[Byte]:
     """Compress data using zlib compression.
 
@@ -65,7 +65,7 @@ fn compress(
 fn compressobj(
     level: Int = -1,
     method: Int32 = Z_DEFLATED,
-    wbits: Int = MAX_WBITS,
+    wbits: Int32 = MAX_WBITS,
     memLevel: Int32 = DEF_MEM_LEVEL,
     strategy: Int32 = Z_DEFAULT_STRATEGY
 ) raises -> Compress:
@@ -112,7 +112,7 @@ struct Compress(Movable):
     var finished: Bool
     var level: Int
     var method: Int32
-    var wbits: Int
+    var wbits: Int32
     var memLevel: Int32
     var strategy: Int32
     var output_buffer: List[UInt8]
@@ -121,7 +121,7 @@ struct Compress(Movable):
         out self,
         level: Int = -1,
         method: Int32 = Z_DEFLATED,
-        wbits: Int = MAX_WBITS,
+        wbits: Int32 = MAX_WBITS,
         memLevel: Int32 = DEF_MEM_LEVEL,
         strategy: Int32 = Z_DEFAULT_STRATEGY
     ) raises:
@@ -172,7 +172,7 @@ struct Compress(Movable):
             UnsafePointer(to=self.stream),
             Int32(self.level),
             self.method,
-            Int32(self.wbits),
+            self.wbits,
             self.memLevel,
             self.strategy,
             zlib_version.unsafe_cstr_ptr().bitcast[UInt8](),

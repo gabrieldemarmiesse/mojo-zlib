@@ -30,7 +30,7 @@ from .zlib_shared_object import get_zlib_dl_handle
 
 
 fn decompress(
-    data: Span[Byte], /, wbits: Int = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE
+    data: Span[Byte], /, wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE
 ) raises -> List[Byte]:
     """Decompress deflated data using zlib decompression.
 
@@ -63,7 +63,7 @@ fn decompress(
     return result
 
 
-fn decompressobj(wbits: Int = MAX_WBITS) raises -> Decompress:
+fn decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress:
     """Return a decompression object.
 
     This function creates and returns a decompression object that can be used
@@ -105,14 +105,14 @@ struct Decompress(Movable):
     var output_buffer: List[UInt8]
     var output_pos: Int
     var output_available: Int
-    var wbits: Int
+    var wbits: Int32
 
     # Python-compatible attributes
     var unused_data: List[UInt8]
     var unconsumed_tail: List[UInt8]
     var eof: Bool
 
-    fn __init__(out self, wbits: Int = MAX_WBITS) raises:
+    fn __init__(out self, wbits: Int32 = MAX_WBITS) raises:
         self.handle = get_zlib_dl_handle()
         self.inflate_fn = self.handle.get_function[inflate_type]("inflate")
         self.inflateEnd = self.handle.get_function[inflateEnd_type](
@@ -162,7 +162,7 @@ struct Decompress(Movable):
         var zlib_version = String("1.2.11")
         var init_res = inflateInit2(
             UnsafePointer(to=self.stream),
-            Int32(self.wbits),
+            self.wbits,
             zlib_version.unsafe_cstr_ptr().bitcast[UInt8](),
             Int32(sys.sizeof[ZStream]()),
         )
