@@ -359,30 +359,10 @@ fn main() raises:
     print("CRC32 running total:", crc_total)
 ```
 
-## Testing
-
-Run the test suite to verify functionality:
-
-```bash
-pixi run test
-```
-
-The library includes comprehensive tests covering:
-- Basic compression and decompression
-- Streaming operations
-- Different compression formats (zlib, gzip, raw deflate)
-- Error handling and edge cases
-- Checksum function accuracy
-- Python compatibility verification
-
 ## Performance
 
-This library leverages the optimized zlib C library for compression operations while providing pure Mojo implementations for checksum functions. Performance characteristics:
-
-- **Compression/Decompression**: Near-native C performance through FFI
-- **Memory Usage**: Configurable buffer sizes for memory-efficient streaming
-- **Checksums**: Pure Mojo implementations optimized for Mojo's type system
+This library leverages the optimized zlib C library for compression operations while providing pure Mojo implementations for checksum functions.
 
 ## License
 
-This project follows the same licensing as the original zlib library.
+The license of this project is MIT. Check [LICENSE](LICENSE) for more details.
