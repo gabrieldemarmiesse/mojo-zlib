@@ -274,19 +274,6 @@ struct Compress(Movable):
 
         return result
 
-    fn copy(self) raises -> Compress:
-        """Create a copy of the compressor.
-
-        This method matches Python's zlib compression object API.
-        Note: This creates a fresh compressor since copying mid-stream state is complex.
-
-        Returns:
-            A new Compress object with the same configuration.
-        """
-        return Compress(
-            self.level, self.method, self.wbits, self.memLevel, self.strategy
-        )
-
     fn __del__(owned self):
         if self.initialized:
             _ = self.deflateEnd(UnsafePointer(to=self.stream))

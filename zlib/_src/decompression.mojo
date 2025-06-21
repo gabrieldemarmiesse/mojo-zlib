@@ -312,17 +312,6 @@ struct Decompress(Movable):
             result += chunk
         return result
 
-    fn copy(self) raises -> Decompress:
-        """Create a copy of the decompressor.
-
-        This method matches Python's zlib decompression object API.
-        Note: This creates a fresh decompressor since copying mid-stream state is complex.
-
-        Returns:
-            A new Decompress object with the same configuration.
-        """
-        return Decompress(self.wbits)
-
     fn __del__(owned self):
         if self.initialized:
             _ = self.inflateEnd(UnsafePointer(to=self.stream))

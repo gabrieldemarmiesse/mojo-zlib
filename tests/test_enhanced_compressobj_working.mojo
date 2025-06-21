@@ -82,32 +82,6 @@ def test_different_memory_levels():
         )
 
 
-def test_copy_with_all_parameters():
-    """Test copy functionality with all parameters."""
-    test_data = "Testing copy with enhanced parameters.".as_bytes()
-
-    # Create compressor with custom parameters
-    var original = zlib.compressobj(
-        level=7, method=8, wbits=12, memLevel=6, strategy=1
-    )
-
-    # Make a copy
-    var copied = original.copy()
-
-    # Both should produce identical output
-    var result1 = original.compress(test_data) + original.flush()
-    var result2 = copied.compress(test_data) + copied.flush()
-
-    # Results should be identical
-    assert_equal(
-        len(result1), len(result2), "Copy should produce same output length"
-    )
-    for i in range(len(result1)):
-        assert_equal(
-            result1[i], result2[i], "Copy should produce identical output"
-        )
-
-
 def test_parameter_validation():
     """Test that different valid parameter combinations work."""
     test_data = "Testing parameter validation.".as_bytes()
