@@ -2,17 +2,60 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+mojo-zlib is a Mojo implementation of Python's zlib module, providing compression and decompression functionality that follows the Python API. The project uses the zlib C library through FFI (Foreign Function Interface) calls.
+
 ## Additional information about Mojo
 Since the Mojo language is pretty new, the Mojo repository can be found in `modular/` with a memory file at @modular/CLAUDE.md . The files in the `modular/` directory should never be updated and are only here as a reference to understand how the Mojo language works. Whenever in doubt, search the code in this directory.
 
 Do not use print statements in the tests. They won't be seen if the tests are passing correctly.
 
-The reference implementation in python can be found in `zipfile/reference.py`.
 List is auto-cast to Span when calling a function. So it's not necessary to implement a function for both Span and List. Just implementing it for Span is enough.
 
-In docstrings, sentences to describle a function or an argument should always end with a "."
+In docstrings, sentences to describe a function or an argument should always end with a "."
 
 In Mojo `Byte` is an alias for `UInt8`.
+
+## Project Structure
+
+```
+zlib/
+├── __init__.mojo              # Main module interface
+└── _src/
+    ├── checksums.mojo         # CRC32 and Adler32 implementations
+    ├── compression.mojo       # Compression functions and streaming
+    ├── constants.mojo         # zlib constants and FFI types
+    ├── decompression.mojo     # Decompression functions and streaming
+    ├── utils_testing.mojo     # Testing utilities and Python interop
+    └── zlib_shared_object.mojo # Dynamic library loading
+```
+
+## Build and Test Commands
+
+- **Run tests**: `pixi run test` (equivalent to `mojo test -I . tests/`)
+- **Format code**: `pixi run format` (equivalent to `mojo format`)
+
+## Key Implementation Details
+
+### FFI Integration
+The project uses FFI to call zlib C library functions. Key patterns:
+- All zlib functions are loaded dynamically via `get_zlib_dl_handle()`
+- C structures like `ZStream` are defined in `constants.mojo`
+- Error handling uses `log_zlib_result()` for consistent error messages
+
+### Function Signatures
+Functions follow Python's zlib API:
+- `compress(data, level=-1, wbits=15)` - Compress data
+- `decompress(data, wbits=15, bufsize=16384)` - Decompress data
+- `compressobj()` / `decompressobj()` - Streaming compression/decompression
+- `crc32(data, value=0)` / `adler32(data, value=1)` - Checksum functions
+
+### Window Bits Parameter
+The `wbits` parameter controls compression format:
+- Positive values (9-15): zlib format with header and trailer
+- Negative values (-9 to -15): raw deflate format  
+- Values 25-31: gzip format
 
 ## String to Bytes Conversion
 
@@ -59,7 +102,7 @@ def test_function_python_compatibility():
     assert_lists_are_equal(mojo_result, py_result_list)
 ```
 
-Use `to_py_bytes()` utility function from `zipfile.utils_testing` to convert Mojo bytes to Python bytes objects.
+Use `to_py_bytes()` utility function from `zlib._src.utils_testing` to convert Mojo bytes to Python bytes objects.
 
 ## Additional Utility Functions in `utils_testing.mojo`
 
@@ -108,3 +151,38 @@ def test_specific_error():
 ```
 
 **Important**: Use `assert_raises()` as a context manager with `with` statement, not as a function call with lambda. The context manager pattern is the correct and idiomatic way to test exceptions in Mojo.
+
+## Code Style Guidelines
+
+### Function Parameters
+- Use positional-only parameters (`/`) for data arguments to match Python's API
+- Follow Python's parameter order and defaults exactly
+- Document all parameters in docstrings with proper descriptions ending in "."
+
+### Error Handling
+- Use `log_zlib_result()` for consistent zlib error handling
+- Raise `Error()` with descriptive messages for invalid inputs
+- Test error conditions thoroughly using `assert_raises()`
+
+### Testing Patterns
+- **Python Compatibility**: Always test against Python's zlib for identical behavior
+- **Random Data**: Use seeded random data for reproducible tests
+- **Edge Cases**: Test empty data, large data, and boundary conditions
+- **Format Variations**: Test different wbits values (zlib, raw deflate, gzip)
+- **Streaming**: Test both one-shot and streaming APIs
+
+### Memory Management
+- Use `UnsafePointer` for FFI integration with proper cleanup
+- Initialize C structures with `memset_zero()` before use
+- Always call `inflateEnd()` / `deflateEnd()` to free zlib resources
+
+### Import Organization
+```mojo
+# Standard library imports first
+from sys import ffi
+from memory import memset_zero, UnsafePointer
+
+# Local imports second
+from .constants import ZStream, Z_OK, ...
+from .zlib_shared_object import get_zlib_dl_handle
+```
