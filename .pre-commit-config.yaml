@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: mojo-format
+        name: Format Mojo files
+        entry: pixi run mojo format
+        language: system
+        files: \.mojo$
+        pass_filenames: true
