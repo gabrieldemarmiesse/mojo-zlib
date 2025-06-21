@@ -52,7 +52,7 @@ fn compress(
         Compressed data as List[Byte].
     """
     # Create a compressor object
-    var compressor = compressobj(level, Int(Z_DEFLATED), wbits)
+    var compressor = compressobj(level, Z_DEFLATED, wbits)
 
     # Compress all data and flush
     var compressed_data = compressor.compress(data)
@@ -64,10 +64,10 @@ fn compress(
 
 fn compressobj(
     level: Int = -1,
-    method: Int = Int(Z_DEFLATED),
+    method: Int32 = Z_DEFLATED,
     wbits: Int = MAX_WBITS,
-    memLevel: Int = Int(DEF_MEM_LEVEL),
-    strategy: Int = Int(Z_DEFAULT_STRATEGY)
+    memLevel: Int32 = DEF_MEM_LEVEL,
+    strategy: Int32 = Z_DEFAULT_STRATEGY
 ) raises -> Compress:
     """Return a compression object.
 
@@ -111,19 +111,19 @@ struct Compress(Movable):
     var initialized: Bool
     var finished: Bool
     var level: Int
-    var method: Int
+    var method: Int32
     var wbits: Int
-    var memLevel: Int
-    var strategy: Int
+    var memLevel: Int32
+    var strategy: Int32
     var output_buffer: List[UInt8]
 
     fn __init__(
         out self,
         level: Int = -1,
-        method: Int = Int(Z_DEFLATED),
+        method: Int32 = Z_DEFLATED,
         wbits: Int = MAX_WBITS,
-        memLevel: Int = Int(DEF_MEM_LEVEL),
-        strategy: Int = Int(Z_DEFAULT_STRATEGY)
+        memLevel: Int32 = DEF_MEM_LEVEL,
+        strategy: Int32 = Z_DEFAULT_STRATEGY
     ) raises:
         self.handle = get_zlib_dl_handle()
         self.deflate_fn = self.handle.get_function[deflate_type]("deflate")
@@ -171,10 +171,10 @@ struct Compress(Movable):
         var init_res = deflateInit2(
             UnsafePointer(to=self.stream),
             Int32(self.level),
-            Int32(self.method),
+            self.method,
             Int32(self.wbits),
-            Int32(self.memLevel),
-            Int32(self.strategy),
+            self.memLevel,
+            self.strategy,
             zlib_version.unsafe_cstr_ptr().bitcast[UInt8](),
             Int32(sys.sizeof[ZStream]()),
         )
