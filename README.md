@@ -8,22 +8,16 @@ A Mojo implementation of the Python zlib library, providing compression, decompr
 - **Streaming Operations**: Incremental compression and decompression for large datasets
 - **Checksum Functions**: Pure Mojo implementations of CRC32 and Adler-32 algorithms
 - **Python Compatibility**: API designed to match Python's zlib module
-- **High Performance**: Leverages zlib C library for optimal performance
 - **Memory Efficient**: Streaming operations avoid loading entire datasets into memory
 
-## Installation
 
-This library requires Mojo and a conda environment with zlib installed:
+**Note** Those bindings are not as fast and they could be. We are currently waiting for several Mojo language features to improve the speed.
+
+## Development
+
+Run the unit tests with 
 
 ```bash
-# Create and activate conda environment
-conda create -n mojo-zlib python=3.11
-conda activate mojo-zlib
-conda install zlib
-
-# Clone and test the library
-git clone <repository-url>
-cd mojo-zlib
 pixi run test
 ```
 
@@ -32,21 +26,24 @@ pixi run test
 ```mojo
 import zlib
 
-# Basic compression and decompression
-var data = "Hello, World! This is a test string for compression.".as_bytes()
-var compressed = zlib.compress(data)
-var decompressed = zlib.decompress(compressed)
-
-# Streaming compression for large data
-var compressor = zlib.compressobj()
-var chunk1 = compressor.compress(data_part1)
-var chunk2 = compressor.compress(data_part2) 
-var final = compressor.flush()
-var result = chunk1 + chunk2 + final
-
-# Checksum calculation
-var crc = zlib.crc32(data)
-var adler = zlib.adler32(data)
+fn main() raises:
+    # Basic compression and decompression
+    data = "Hello, World! This is a test string for compression.".as_bytes()
+    compressed = zlib.compress(data)
+    decompressed = zlib.decompress(compressed)
+    
+    # Streaming compression for large data
+    compressor = zlib.compressobj()
+    data_part1 = "First part of data ".as_bytes()
+    data_part2 = "Second part of data".as_bytes()
+    chunk1 = compressor.compress(data_part1)
+    chunk2 = compressor.compress(data_part2) 
+    final = compressor.flush()
+    result = chunk1 + chunk2 + final
+    
+    # Checksum calculation
+    crc = zlib.crc32(data)
+    adler = zlib.adler32(data)
 ```
 
 ## API Reference
@@ -66,6 +63,8 @@ var adler = zlib.adler32(data)
 | [`decompressobj`](#decompressobj) | `fn decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress` |
 
 ### Checksum Functions
+
+Note that those are implemented in Mojo and thus do not require `libz.so` to be installed.
 
 | Function | Signature |
 |----------|-----------|
@@ -284,17 +283,17 @@ The library provides Python-compatible constants:
 ```mojo
 import zlib
 
-var text = "Hello, World! This is a longer text that will benefit from compression."
-var data = text.as_bytes()
-
-# Compress data
-var compressed = zlib.compress(data, level=6)
-print("Original size:", len(data), "Compressed size:", len(compressed))
-
-# Decompress data
-var decompressed = zlib.decompress(compressed)
-var result_text = String(decompressed)
-print("Decompressed:", result_text)
+fn main() raises:
+    text = "Hello, World! This is a longer text that will benefit from compression."
+    data = text.as_bytes()
+    
+    # Compress data
+    compressed = zlib.compress(data, level=6)
+    print("Original size:", len(data), "Compressed size:", len(compressed))
+    
+    # Decompress data
+    decompressed = zlib.decompress(compressed)
+    print("Decompression successful:", String(bytes=decompressed))
 ```
 
 ### Streaming Compression
@@ -302,17 +301,19 @@ print("Decompressed:", result_text)
 ```mojo
 import zlib
 
-# Create compressor
-var compressor = zlib.compressobj(level=9)
+fn main() raises:
+    # Create compressor
+    compressor = zlib.compressobj(level=9)
 
-# Compress data in chunks
-var chunk1 = compressor.compress("First chunk of data ".as_bytes())
-var chunk2 = compressor.compress("Second chunk of data ".as_bytes())
-var chunk3 = compressor.compress("Final chunk of data".as_bytes())
-var final = compressor.flush()
+    # Compress data in chunks
+    chunk1 = compressor.compress("First chunk of data ".as_bytes())
+    chunk2 = compressor.compress("Second chunk of data ".as_bytes())
+    chunk3 = compressor.compress("Final chunk of data".as_bytes())
+    final = compressor.flush()
 
-# Combine results
-var compressed = chunk1 + chunk2 + chunk3 + final
+    # Combine results
+    compressed = chunk1 + chunk2 + chunk3 + final
+    print(String(bytes=zlib.decompress(compressed)))
 ```
 
 ### Format-Specific Compression
@@ -320,16 +321,17 @@ var compressed = chunk1 + chunk2 + chunk3 + final
 ```mojo
 import zlib
 
-var data = "Test data for different formats".as_bytes()
+fn main() raises:
+    data = "Test data for different formats".as_bytes()
 
-# Raw DEFLATE format (no header/trailer)
-var raw_compressed = zlib.compress(data, wbits=-15)
+    # Raw DEFLATE format (no header/trailer)
+    raw_compressed = zlib.compress(data, wbits=-15)
 
-# Gzip format 
-var gzip_compressed = zlib.compress(data, wbits=16+15)
+    # Gzip format 
+    gzip_compressed = zlib.compress(data, wbits=16+15)
 
-# Standard zlib format (default)
-var zlib_compressed = zlib.compress(data, wbits=15)
+    # Standard zlib format (default)
+    zlib_compressed = zlib.compress(data, wbits=15)
 ```
 
 ### Checksum Calculations
@@ -337,22 +339,24 @@ var zlib_compressed = zlib.compress(data, wbits=15)
 ```mojo
 import zlib
 
-var data = "Data for checksum calculation".as_bytes()
+fn main() raises:
+    data = "Data for checksum calculation".as_bytes()
 
-# Calculate CRC32
-var crc = zlib.crc32(data)
-print("CRC32:", crc)
+    # Calculate CRC32
+    crc = zlib.crc32(data)
+    print("CRC32:", crc)
 
-# Calculate Adler32
-var adler = zlib.adler32(data)
-print("Adler32:", adler)
+    # Calculate Adler32
+    adler = zlib.adler32(data)
+    print("Adler32:", adler)
 
-# Running checksums
-var part1 = "First part ".as_bytes()
-var part2 = "second part".as_bytes()
+    # Running checksums
+    part1 = "First part ".as_bytes()
+    part2 = "second part".as_bytes()
 
-var crc1 = zlib.crc32(part1)
-var crc_total = zlib.crc32(part2, crc1)  # Running checksum
+    crc1 = zlib.crc32(part1)
+    crc_total = zlib.crc32(part2, crc1)  # Running checksum
+    print("CRC32 running total:", crc_total)
 ```
 
 ## Testing

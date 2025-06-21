@@ -17,6 +17,9 @@ In docstrings, sentences to describe a function or an argument should always end
 
 In Mojo `Byte` is an alias for `UInt8`.
 
+
+In Mojo, declaring a local variable with `var` is valid. But the author prefer using implicit declaring of local variable, so the `var` is not needed. The only place it's needed is to declare struct attributes.
+
 ## Project Structure
 
 ```
