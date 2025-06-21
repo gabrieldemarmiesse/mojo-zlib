@@ -104,7 +104,9 @@ fn test_decompress_different_wbits_values() raises:
 
     # Test with default MAX_WBITS (15) - zlib format
     var zlib_compressed = compress_string_with_python(test_string, wbits=15)
-    var result_zlib = zlib.decompress(zlib_compressed)  # Default wbits=MAX_WBITS
+    var result_zlib = zlib.decompress(
+        zlib_compressed
+    )  # Default wbits=MAX_WBITS
     assert_lists_are_equal(
         result_zlib, expected, "zlib decompression should match expected"
     )
@@ -142,7 +144,9 @@ fn test_decompress_positional_only_parameter() raises:
     # These should work - data as positional parameter
     var result1 = zlib.decompress(compressed)
     var result2 = zlib.decompress(compressed, wbits=zlib.MAX_WBITS)
-    var result3 = zlib.decompress(compressed, wbits=zlib.MAX_WBITS, bufsize=zlib.DEF_BUF_SIZE)
+    var result3 = zlib.decompress(
+        compressed, wbits=zlib.MAX_WBITS, bufsize=zlib.DEF_BUF_SIZE
+    )
 
     assert_lists_are_equal(
         result1,

@@ -106,7 +106,7 @@ struct Decompress(Movable):
     var output_pos: Int
     var output_available: Int
     var wbits: Int
-    
+
     # Python-compatible attributes
     var unused_data: List[UInt8]
     var unconsumed_tail: List[UInt8]
@@ -145,7 +145,7 @@ struct Decompress(Movable):
         self.output_pos = 0
         self.output_available = 0
         self.wbits = wbits
-        
+
         # Initialize Python-compatible attributes
         self.unused_data = List[UInt8]()
         self.unconsumed_tail = List[UInt8]()
@@ -205,7 +205,11 @@ struct Decompress(Movable):
             # Any remaining input becomes unused_data
             if Int(self.stream.avail_in) > 0:
                 self.unused_data.clear()
-                self.unused_data.extend(self.input_buffer[len(self.input_buffer) - Int(self.stream.avail_in):])
+                self.unused_data.extend(
+                    self.input_buffer[
+                        len(self.input_buffer) - Int(self.stream.avail_in) :
+                    ]
+                )
         elif result != Z_OK:
             log_zlib_result(result, compressing=False)
 
@@ -216,14 +220,14 @@ struct Decompress(Movable):
 
         # Update unconsumed_tail and remove consumed input
         var consumed = len(self.input_buffer) - Int(self.stream.avail_in)
-        
+
         # Remove consumed input from buffer
         if consumed > 0:
             var new_input = List[UInt8]()
             for i in range(consumed, len(self.input_buffer)):
                 new_input.append(self.input_buffer[i])
             self.input_buffer = new_input^
-        
+
         # unconsumed_tail always contains what's left in input_buffer
         self.unconsumed_tail.clear()
         self.unconsumed_tail.extend(self.input_buffer)
