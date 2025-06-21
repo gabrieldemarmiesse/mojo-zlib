@@ -140,7 +140,6 @@ def test_crc32_known_values_python_compatibility():
         data = String(test_string).as_bytes()
         mojo_result = zlib.crc32(data)
 
-        # Create Python bytes object and compute CRC32
         py_bytes = to_py_bytes(data)
         py_result = py_zlib.crc32(py_bytes)
 

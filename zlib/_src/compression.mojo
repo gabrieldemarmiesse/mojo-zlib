@@ -34,21 +34,24 @@ from .zlib_shared_object import get_zlib_dl_handle
 fn compress(
     data: Span[Byte], /, level: Int32 = -1, wbits: Int32 = MAX_WBITS
 ) raises -> List[Byte]:
-    """Compress data using zlib compression.
-
-    This function now uses the Compress struct internally for consistency
-    and to eliminate code duplication.
+    """Compresses the bytes in data, returning a `List[UInt8]` containing compressed data.
 
     Args:
         data: The data to compress.
-        level: Compression level (0-9, -1 for default).
-        wbits: Window bits parameter controlling format and window size
-               - Positive values (9-15): zlib format with header and trailer
-               - Negative values (-9 to -15): raw deflate format
-               - Values 25-31: gzip format.
+        level: Compression level from 0 to 9 controlling the compression speed/size tradeoff.
+               0 means no compression, 1 is fastest with least compression, 9 is slowest
+               with best compression. -1 requests a default compromise between speed and
+               compression (currently equivalent to level 6).
+        wbits: Window bits parameter controlling the compression format and window size:
+               - 9 to 15: zlib format with header and checksum
+               - -9 to -15: raw deflate format without header or checksum
+               - 16 + (9 to 15): gzip format with header and checksum
 
     Returns:
         Compressed data as List[Byte].
+
+    Raises:
+        Error: If compression fails or invalid parameters are provided.
     """
     # Create a compressor object
     var compressor = compressobj(level, Z_DEFLATED, wbits)
@@ -68,39 +71,44 @@ fn compressobj(
     memLevel: Int32 = DEF_MEM_LEVEL,
     strategy: Int32 = Z_DEFAULT_STRATEGY,
 ) raises -> Compress:
-    """Return a compression object.
+    """Return a compression object whose compress() method takes a `Span[UInt8]`
+    and returns compressed data for a portion of the data.
 
-    This function creates and returns a compression object that can be used
-    to compress data incrementally. This matches Python's zlib.compressobj() API.
+    The returned object also has flush() and copy() methods. See below for their descriptions.
+    This allows for incremental compression; it can be more efficient when compressing
+    very large amounts of data.
 
     Args:
-        level: Compression level (0-9, -1 for default).
-        method: Compression method (only Z_DEFLATED is supported).
-        wbits: Window bits parameter controlling format and window size
-               - Positive values (9-15): zlib format with header and trailer
-               - Negative values (-9 to -15): raw deflate format
-               - Values 25-31: gzip format.
-        memLevel: Memory usage level (1-9, default 8).
-        strategy: Compression strategy (Z_DEFAULT_STRATEGY, Z_FILTERED, etc.).
+        level: Compression level from 0 to 9 controlling the compression speed/size tradeoff.
+               0 means no compression, 1 is fastest with least compression, 9 is slowest
+               with best compression. -1 requests a default compromise between speed and
+               compression (currently equivalent to level 6).
+        method: The compression algorithm. Currently, the only supported value is DEFLATED.
+        wbits: Window bits parameter controlling the compression format and window size:
+               - 9 to 15: zlib format with header and checksum
+               - -9 to -15: raw deflate format without header or checksum
+               - 16 + (9 to 15): gzip format with header and checksum
+        memLevel: Controls the amount of memory used for compression. Valid values are
+                  from 1 to 9. Higher values use more memory but are faster and produce
+                  smaller output.
+        strategy: Used to tune the compression algorithm. Possible values are:
+                  Z_DEFAULT_STRATEGY, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, and Z_FIXED.
 
     Returns:
         A Compress object that can compress data incrementally.
 
-    Example:
-        ```mojo
-        var comp = zlib.compressobj()
-        var result1 = comp.compress(data_chunk1)
-        var result2 = comp.compress(data_chunk2)
-        var final = comp.flush()
-        ```
+    Raises:
+        Error: If compression initialization fails or invalid parameters are provided.
     """
     return Compress(level, method, wbits, memLevel, strategy)
 
 
 struct Compress(Movable):
-    """A streaming compressor that can compress data in chunks.
+    """A compression object for compressing data incrementally.
 
-    This struct matches Python's zlib compression object API.
+    Allows compression of data that cannot fit into memory all at once.
+    The object can be used to compress data piece by piece and then
+    retrieve the compressed data.
     """
 
     var stream: ZStream
@@ -184,15 +192,22 @@ struct Compress(Movable):
         self.initialized = True
 
     fn compress(mut self, data: Span[Byte]) raises -> List[UInt8]:
-        """Compress data incrementally.
+        """Compress data, returning a `List[UInt8]` containing compressed data
+        for at least part of the data in data.
 
-        This method matches Python's zlib compression object API.
+        This data should be concatenated to the output produced by any
+        preceding calls to the compress() method. Some input may be kept
+        in internal buffers for later processing.
 
         Args:
             data: Data to compress.
 
         Returns:
-            Compressed data as List[UInt8].
+            Compressed data as List[UInt8]. May be empty if input data
+            is buffered internally.
+
+        Raises:
+            Error: If compression fails or flush() has already been called.
         """
         if not self.initialized:
             self.initialize()
@@ -231,13 +246,19 @@ struct Compress(Movable):
         return result
 
     fn flush(mut self) raises -> List[UInt8]:
-        """Flush any remaining data and finish compression.
+        """Finish the compression process and return a `List[UInt8]` containing
+        any remaining compressed data.
 
-        This method matches Python's zlib compression object API.
-        After calling flush(), no more data can be compressed.
+        This method finishes the compression of any data that might remain in the
+        internal buffers and returns the final compressed data. After calling
+        `flush()`, the compressor object cannot be used again; subsequent calls
+        to `compress()` will raise an error.
 
         Returns:
             Final compressed data as List[UInt8].
+
+        Raises:
+            Error: If compression finalization fails.
         """
         if not self.initialized:
             self.initialize()
