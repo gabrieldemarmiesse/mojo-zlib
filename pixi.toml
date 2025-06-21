@@ -5,6 +5,10 @@ name = "mojo-zlib"
 platforms = ["linux-64"]
 version = "0.1.0"
 
+[package]
+name = "mojo-zlib"
+version = "0.1.0"
+
 [tasks]
 test = "mojo test -I . tests/"
 format = "mojo format"
