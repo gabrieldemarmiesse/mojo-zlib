@@ -33,7 +33,7 @@ alias BUFFER_SIZE = 65536  # 64KB
 
 
 fn compress(
-    data: Span[Byte], /, level: Int = -1, wbits: Int32 = MAX_WBITS
+    data: Span[Byte], /, level: Int32 = -1, wbits: Int32 = MAX_WBITS
 ) raises -> List[Byte]:
     """Compress data using zlib compression.
 
@@ -63,11 +63,11 @@ fn compress(
 
 
 fn compressobj(
-    level: Int = -1,
+    level: Int32 = -1,
     method: Int32 = Z_DEFLATED,
     wbits: Int32 = MAX_WBITS,
     memLevel: Int32 = DEF_MEM_LEVEL,
-    strategy: Int32 = Z_DEFAULT_STRATEGY
+    strategy: Int32 = Z_DEFAULT_STRATEGY,
 ) raises -> Compress:
     """Return a compression object.
 
@@ -110,7 +110,7 @@ struct Compress(Movable):
     var deflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
     var initialized: Bool
     var finished: Bool
-    var level: Int
+    var level: Int32
     var method: Int32
     var wbits: Int32
     var memLevel: Int32
@@ -119,11 +119,11 @@ struct Compress(Movable):
 
     fn __init__(
         out self,
-        level: Int = -1,
+        level: Int32 = -1,
         method: Int32 = Z_DEFLATED,
         wbits: Int32 = MAX_WBITS,
         memLevel: Int32 = DEF_MEM_LEVEL,
-        strategy: Int32 = Z_DEFAULT_STRATEGY
+        strategy: Int32 = Z_DEFAULT_STRATEGY,
     ) raises:
         self.handle = get_zlib_dl_handle()
         self.deflate_fn = self.handle.get_function[deflate_type]("deflate")
@@ -170,7 +170,7 @@ struct Compress(Movable):
         var zlib_version = String("1.2.11")
         var init_res = deflateInit2(
             UnsafePointer(to=self.stream),
-            Int32(self.level),
+            self.level,
             self.method,
             self.wbits,
             self.memLevel,
@@ -284,7 +284,9 @@ struct Compress(Movable):
         Returns:
             A new Compress object with the same configuration.
         """
-        return Compress(self.level, self.method, self.wbits, self.memLevel, self.strategy)
+        return Compress(
+            self.level, self.method, self.wbits, self.memLevel, self.strategy
+        )
 
     fn __del__(owned self):
         if self.initialized:
