@@ -375,42 +375,6 @@ struct Decompress(Copyable, Movable):
         """
         return Decompress(self.wbits)
 
-    fn get_unused_data(self) -> List[UInt8]:
-        """Return a bytes object containing any data that was not consumed by the last decompress call.
-        
-        This matches Python's zlib decompression object unused_data attribute.
-        
-        Returns:
-            Unused input data that was not consumed.
-        """
-        var result = List[UInt8]()
-        for byte in self.unused_data:
-            result.append(byte)
-        return result
-
-    fn get_unconsumed_tail(self) -> List[UInt8]:
-        """Return a bytes object containing any data in the input buffer that has not yet been consumed.
-        
-        This matches Python's zlib decompression object unconsumed_tail attribute.
-        
-        Returns:
-            Unconsumed input data.
-        """
-        var result = List[UInt8]()
-        for byte in self.unconsumed_tail:
-            result.append(byte)
-        return result
-
-    fn get_eof(self) -> Bool:
-        """Return True if the end-of-stream marker has been reached.
-        
-        This matches Python's zlib decompression object eof attribute.
-        
-        Returns:
-            True if end-of-stream marker has been reached.
-        """
-        return self.eof
-
     fn __del__(owned self):
         if self.initialized:
             _ = self.inflateEnd(UnsafePointer(to=self.stream))

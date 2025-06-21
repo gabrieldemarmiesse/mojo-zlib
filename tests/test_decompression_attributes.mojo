@@ -24,9 +24,9 @@ def test_decompression_object_attributes():
     var decompressor = zlib.decompressobj()
     
     # Initially, all attributes should be empty/false
-    assert_equal(len(decompressor.get_unused_data()), 0, "unused_data should initially be empty")
-    assert_equal(len(decompressor.get_unconsumed_tail()), 0, "unconsumed_tail should initially be empty")
-    assert_false(decompressor.get_eof(), "eof should initially be False")
+    assert_equal(len(decompressor.unused_data), 0, "unused_data should initially be empty")
+    assert_equal(len(decompressor.unconsumed_tail), 0, "unconsumed_tail should initially be empty")
+    assert_false(decompressor.eof, "eof should initially be False")
     
     # Decompress the data
     var result = decompressor.decompress(extra_data)
@@ -37,10 +37,10 @@ def test_decompression_object_attributes():
         assert_equal(result[i], test_data[i], "Decompressed data should match original")
     
     # After decompression, eof should be True
-    assert_true(decompressor.get_eof(), "eof should be True after successful decompression")
+    assert_true(decompressor.eof, "eof should be True after successful decompression")
     
     # unused_data should contain the extra bytes that weren't part of the compressed stream
-    var unused = decompressor.get_unused_data()
+    var unused = decompressor.unused_data
     assert_equal(len(unused), 4, "unused_data should contain the 4 extra bytes")
     assert_equal(unused[0], 1, "First unused byte should be 1")
     assert_equal(unused[1], 2, "Second unused byte should be 2")
@@ -64,7 +64,7 @@ def test_unconsumed_tail_partial_decompress():
     var result = decompressor.decompress(partial_data)
     
     # Check what happened after feeding partial data
-    var unconsumed = decompressor.get_unconsumed_tail()
+    var unconsumed = decompressor.unconsumed_tail
     
     # If no data was consumed (which is expected with incomplete compressed data),
     # unconsumed_tail should contain all the data we fed
@@ -76,7 +76,7 @@ def test_unconsumed_tail_partial_decompress():
         assert_true(len(unconsumed) >= 0, "unconsumed_tail should be valid")
     
     # eof should still be False since we haven't reached the end
-    assert_false(decompressor.get_eof(), "eof should be False with partial data")
+    assert_false(decompressor.eof, "eof should be False with partial data")
 
 
 def test_empty_decompression_attributes():
@@ -84,9 +84,9 @@ def test_empty_decompression_attributes():
     var decompressor = zlib.decompressobj()
     
     # Without feeding any data, all should be empty/false
-    assert_equal(len(decompressor.get_unused_data()), 0, "unused_data should be empty")
-    assert_equal(len(decompressor.get_unconsumed_tail()), 0, "unconsumed_tail should be empty")
-    assert_false(decompressor.get_eof(), "eof should be False")
+    assert_equal(len(decompressor.unused_data), 0, "unused_data should be empty")
+    assert_equal(len(decompressor.unconsumed_tail), 0, "unconsumed_tail should be empty")
+    assert_false(decompressor.eof, "eof should be False")
 
 
 def main():
