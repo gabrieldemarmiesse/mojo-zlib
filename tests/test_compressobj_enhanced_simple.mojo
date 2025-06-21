@@ -78,10 +78,3 @@ def test_compressobj_with_custom_strategy():
             test_data[i],
             "Data should match for custom strategy",
         )
-
-
-def main():
-    """Run all simple tests."""
-    test_compressobj_basic_functionality()
-    test_compressobj_with_custom_level()
-    test_compressobj_with_custom_strategy()

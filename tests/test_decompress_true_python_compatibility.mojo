@@ -209,16 +209,3 @@ def test_decompress_compression_levels_python_compatibility():
             py_result_list,
             "decompressed data should match Python for level " + String(level),
         )
-
-
-def main():
-    """Run all Python compatibility tests for decompress."""
-    test_decompress_empty_data_python_compatibility()
-    test_decompress_hello_python_compatibility()
-    test_decompress_with_different_wbits_python_compatibility()
-    test_decompress_with_different_bufsize_python_compatibility()
-    test_decompress_large_data_python_compatibility()
-    test_decompress_random_data_python_compatibility()
-    test_decompress_binary_data_python_compatibility()
-    test_decompress_mojo_compress_python_decompress_roundtrip()
-    test_decompress_compression_levels_python_compatibility()

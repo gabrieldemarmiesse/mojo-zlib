@@ -137,12 +137,3 @@ def test_parameter_validation():
         assert_equal(
             len(decompressed), len(test_data), "Configuration should work"
         )
-
-
-def main():
-    """Run all enhanced compressobj tests."""
-    test_compressobj_with_all_parameters()
-    test_different_strategies()
-    test_different_memory_levels()
-    test_copy_with_all_parameters()
-    test_parameter_validation()

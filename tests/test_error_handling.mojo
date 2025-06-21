@@ -174,17 +174,3 @@ def test_streaming_decompressor_max_length_edge_cases():
     assert_true(
         len(result_one) <= 1, "max_length=1 should return at most 1 byte"
     )
-
-
-def main():
-    """Run all error handling tests."""
-    test_decompress_invalid_data()
-    test_decompress_corrupted_data()
-    test_compress_empty_data()
-    test_decompress_empty_data()
-    test_very_large_data()
-    test_streaming_after_flush()
-    test_streaming_multiple_flush()
-    test_wbits_format_mismatch()
-    test_checksum_functions_edge_cases()
-    test_streaming_decompressor_max_length_edge_cases()

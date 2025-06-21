@@ -219,12 +219,3 @@ def test_real_world_json_data():
         streaming_compressed,
         "JSON compression methods should match",
     )
-
-
-def main():
-    """Run all integration tests."""
-    test_web_content_simulation()
-    test_binary_data_patterns()
-    test_mixed_format_compatibility()
-    test_checksum_incremental_usage()
-    test_real_world_json_data()

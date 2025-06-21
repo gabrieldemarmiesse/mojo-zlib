@@ -195,13 +195,3 @@ def test_streaming_max_length_parameter():
         full_result,
         "Combined partial results should match original",
     )
-
-
-def main():
-    """Run all comprehensive streaming tests."""
-    test_streaming_compress_decompress_roundtrip()
-    test_streaming_vs_single_shot_compression()
-    test_streaming_vs_single_shot_decompression()
-    test_streaming_with_different_wbits()
-    test_streaming_copy_functionality()
-    test_streaming_max_length_parameter()

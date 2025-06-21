@@ -55,11 +55,3 @@ def test_compress_struct_methods():
     var flush_result = comp.flush()
     # Flush might return some data even if no input was given (headers/trailers)
     assert_true(True, "Flush should work without error")
-
-
-def main():
-    """Run all streaming API tests."""
-    test_decompressobj_creation()
-    test_compressobj_creation()
-    test_streaming_decompressor_methods()
-    test_compress_struct_methods()
