@@ -28,6 +28,7 @@ from .constants import (
 )
 from .zlib_shared_object import get_zlib_dl_handle
 
+alias BUFFER_SIZE = 65536  # 64KB
 
 fn compress(
     data: Span[Byte], /, level: Int = -1, wbits: Int = MAX_WBITS
@@ -131,8 +132,8 @@ struct Compress(Copyable, Movable):
         self.level = level
         self.wbits = wbits
         # Use 64KB output buffer
-        self.output_buffer = List[UInt8](capacity=65536)
-        self.output_buffer.resize(65536, 0)
+        self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
+        self.output_buffer.resize(BUFFER_SIZE, 0)
 
     fn initialize(mut self) raises:
         """Initialize the zlib stream for compression."""
@@ -187,8 +188,8 @@ struct Compress(Copyable, Movable):
         self.finished = False
         self.level = existing.level
         self.wbits = existing.wbits
-        self.output_buffer = List[UInt8](capacity=65536)
-        self.output_buffer.resize(65536, 0)
+        self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
+        self.output_buffer.resize(BUFFER_SIZE, 0)
 
     fn __moveinit__(out self, owned existing: Self):
         """Move constructor."""
