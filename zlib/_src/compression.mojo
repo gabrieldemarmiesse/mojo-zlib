@@ -24,6 +24,7 @@ from .constants import (
     Z_DEFAULT_STRATEGY,
     MAX_WBITS,
     DEF_BUF_SIZE,
+    DEF_MEM_LEVEL,
     log_zlib_result,
 )
 from .zlib_shared_object import get_zlib_dl_handle
@@ -51,7 +52,7 @@ fn compress(
         Compressed data as List[Byte].
     """
     # Create a compressor object
-    var compressor = compressobj(level, wbits)
+    var compressor = compressobj(level, Int(Z_DEFLATED), wbits)
 
     # Compress all data and flush
     var compressed_data = compressor.compress(data)
@@ -61,7 +62,13 @@ fn compress(
     return compressed_data + final_data
 
 
-fn compressobj(level: Int = -1, wbits: Int = MAX_WBITS) raises -> Compress:
+fn compressobj(
+    level: Int = -1,
+    method: Int = Int(Z_DEFLATED),
+    wbits: Int = MAX_WBITS,
+    memLevel: Int = Int(DEF_MEM_LEVEL),
+    strategy: Int = Int(Z_DEFAULT_STRATEGY)
+) raises -> Compress:
     """Return a compression object.
 
     This function creates and returns a compression object that can be used
@@ -69,10 +76,13 @@ fn compressobj(level: Int = -1, wbits: Int = MAX_WBITS) raises -> Compress:
 
     Args:
         level: Compression level (0-9, -1 for default).
+        method: Compression method (only Z_DEFLATED is supported).
         wbits: Window bits parameter controlling format and window size
                - Positive values (9-15): zlib format with header and trailer
                - Negative values (-9 to -15): raw deflate format
                - Values 25-31: gzip format.
+        memLevel: Memory usage level (1-9, default 8).
+        strategy: Compression strategy (Z_DEFAULT_STRATEGY, Z_FILTERED, etc.).
 
     Returns:
         A Compress object that can compress data incrementally.
@@ -85,7 +95,7 @@ fn compressobj(level: Int = -1, wbits: Int = MAX_WBITS) raises -> Compress:
         var final = comp.flush()
         ```
     """
-    return Compress(level, wbits)
+    return Compress(level, method, wbits, memLevel, strategy)
 
 
 struct Compress(Movable):
@@ -101,10 +111,20 @@ struct Compress(Movable):
     var initialized: Bool
     var finished: Bool
     var level: Int
+    var method: Int
     var wbits: Int
+    var memLevel: Int
+    var strategy: Int
     var output_buffer: List[UInt8]
 
-    fn __init__(out self, level: Int = -1, wbits: Int = MAX_WBITS) raises:
+    fn __init__(
+        out self,
+        level: Int = -1,
+        method: Int = Int(Z_DEFLATED),
+        wbits: Int = MAX_WBITS,
+        memLevel: Int = Int(DEF_MEM_LEVEL),
+        strategy: Int = Int(Z_DEFAULT_STRATEGY)
+    ) raises:
         self.handle = get_zlib_dl_handle()
         self.deflate_fn = self.handle.get_function[deflate_type]("deflate")
         self.deflateEnd = self.handle.get_function[deflateEnd_type](
@@ -131,7 +151,10 @@ struct Compress(Movable):
         self.initialized = False
         self.finished = False
         self.level = level
+        self.method = method
         self.wbits = wbits
+        self.memLevel = memLevel
+        self.strategy = strategy
         # Use 64KB output buffer
         self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
         self.output_buffer.resize(BUFFER_SIZE, 0)
@@ -148,10 +171,10 @@ struct Compress(Movable):
         var init_res = deflateInit2(
             UnsafePointer(to=self.stream),
             Int32(self.level),
-            Z_DEFLATED,
+            Int32(self.method),
             Int32(self.wbits),
-            8,  # mem_level
-            Z_DEFAULT_STRATEGY,
+            Int32(self.memLevel),
+            Int32(self.strategy),
             zlib_version.unsafe_cstr_ptr().bitcast[UInt8](),
             Int32(sys.sizeof[ZStream]()),
         )
@@ -261,7 +284,7 @@ struct Compress(Movable):
         Returns:
             A new Compress object with the same configuration.
         """
-        return Compress(self.level, self.wbits)
+        return Compress(self.level, self.method, self.wbits, self.memLevel, self.strategy)
 
     fn __del__(owned self):
         if self.initialized:
