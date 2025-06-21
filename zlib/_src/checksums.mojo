@@ -4,18 +4,19 @@
 fn adler32(data: Span[UInt8], value: UInt32 = 1) -> UInt32:
     """Computes an Adler-32 checksum of data.
 
-    This function implements the Adler-32 algorithm in pure Mojo, avoiding
-    the need for dynamic library dependencies. The algorithm is defined in RFC 1950
-    and is used in the zlib compression library.
+    An Adler-32 checksum is almost as reliable as a CRC32 but can be computed much faster.
+    The result is an unsigned 32-bit integer. If value is present, it is used as the
+    starting value of the checksum; otherwise, a default value of 1 is used.
+    Passing the value returned by a previous call allows computing a running checksum
+    over the concatenation of several inputs.
 
-    The Adler-32 checksum is computed as:
-    - a = 1 + d1 + d2 + ... + dn (mod 65521)
-    - b = (1 + d1) + (1 + d1 + d2) + ... + (1 + d1 + d2 + ... + dn) (mod 65521)
-    - Adler-32(D) = b * 65536 + a
+    The algorithm is defined in RFC 1950 and produces the same results as the
+    adler32() function in the zlib library.
 
     Args:
-        data: The data to compute the checksum for (as a Span).
-        value: Starting value of the checksum (default: 1).
+        data: The data to compute the checksum for.
+        value: Starting value of the checksum (default: 1). Can be the result
+               of a previous adler32() call to compute a running checksum.
 
     Returns:
         An unsigned 32-bit integer representing the Adler-32 checksum.
@@ -52,18 +53,23 @@ alias CRC32Table = generate_crc_32_table()
 
 
 fn crc32(data: Span[UInt8], value: UInt32 = 0) -> UInt32:
-    """Computes a CRC-32 checksum of data.
+    """Computes a CRC (Cyclic Redundancy Check) checksum of data.
 
-    This function implements the same CRC-32 algorithm.
-    It follows the same algorithm used in the zipfile module in Python.
-    Reference: https://github.com/python/cpython/blob/main/Modules/binascii.c#L739
+    This computes a 32-bit checksum of data. The result is an unsigned 32-bit integer.
+    If value is present, it is used as the starting value of the checksum; otherwise,
+    a default value of 0 is used. Passing the value returned by a previous call allows
+    computing a running checksum over the concatenation of several inputs.
+
+    The algorithm produces the same results as the crc32() function in the zlib library
+    and is compatible with the zipfile module.
 
     Args:
-        data: The data to compute the checksum for (as a Span)
-        value: Starting value of the checksum (default: 0)
+        data: The data to compute the checksum for.
+        value: Starting value of the checksum (default: 0). Can be the result
+               of a previous crc32() call to compute a running checksum.
 
     Returns:
-        An unsigned 32-bit integer representing the CRC-32 checksum
+        An unsigned 32-bit integer representing the CRC-32 checksum.
     """
     # Initialize CRC with inverted starting value (CRC-32 starts with 0xFFFFFFFF)
     var crc = ~value

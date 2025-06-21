@@ -33,18 +33,23 @@ from .zlib_shared_object import get_zlib_dl_handle
 fn decompress(
     data: Span[Byte], /, wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE
 ) raises -> List[Byte]:
-    """Decompress deflated data using zlib decompression.
+    """Decompresses the bytes in data, returning a bytes object containing the uncompressed data.
 
     Args:
         data: The compressed data to decompress.
-        wbits: Window bits parameter controlling format and window size
-               - Positive values (9-15): zlib format with header and trailer
-               - Negative values (-9 to -15): raw deflate format
-               - Values 25-31: gzip format.
-        bufsize: Initial size of the output buffer.
+        wbits: Window bits parameter controlling the compression format and window size:
+               - 9 to 15: zlib format with header and checksum
+               - -9 to -15: raw deflate format without header or checksum
+               - 16 + (9 to 15): gzip format with header and checksum
+               - Values 32-47: automatic header detection (zlib or gzip)
+        bufsize: Initial size of the output buffer used to hold decompressed data.
+                 The default size is 16384.
 
     Returns:
-        The decompressed data.
+        The decompressed data as List[Byte].
+
+    Raises:
+        Error: If the compressed data is invalid, corrupted, or incomplete.
     """
     if len(data) == 0:
         raise Error("Cannot decompress empty data")
@@ -65,35 +70,36 @@ fn decompress(
 
 
 fn decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress:
-    """Return a decompression object.
+    """Return a decompression object whose decompress() method takes a bytes object
+    and returns decompressed data for a portion of the data.
 
-    This function creates and returns a decompression object that can be used
-    to decompress data incrementally. This matches Python's zlib.decompressobj() API.
+    The returned object also has decompress() and flush() methods, and unused_data
+    and unconsumed_tail attributes. See below for their descriptions.
+    This allows for incremental decompression when decompressing very large amounts of data.
 
     Args:
-        wbits: Window bits parameter controlling format and window size
-               - Positive values (9-15): zlib format with header and trailer
-               - Negative values (-9 to -15): raw deflate format
-               - Values 25-31: gzip format.
+        wbits: Window bits parameter controlling the compression format and window size:
+               - 9 to 15: zlib format with header and checksum
+               - -9 to -15: raw deflate format without header or checksum
+               - 16 + (9 to 15): gzip format with header and checksum
+               - Values 32-47: automatic header detection (zlib or gzip)
 
     Returns:
         A Decompress object that can decompress data incrementally.
 
-    Example:
-        ```mojo
-        var decomp = zlib.decompressobj()
-        var result1 = decomp.decompress(data_chunk1)
-        var result2 = decomp.decompress(data_chunk2)
-        var final = decomp.flush()
-        ```
+    Raises:
+        Error: If decompression initialization fails or invalid parameters are provided.
     """
     return Decompress(wbits)
 
 
 struct Decompress(Movable):
-    """A streaming decompressor that can decompress data in chunks to avoid large memory usage.
+    """A decompression object for decompressing data incrementally.
 
-    This struct matches Python's zlib decompression object API.
+    Allows decompression of data that cannot fit into memory all at once.
+    The object can be used to decompress data piece by piece.
+    Contains attributes unused_data, unconsumed_tail, and eof that provide
+    information about the decompression process.
     """
 
     var stream: ZStream
@@ -110,8 +116,20 @@ struct Decompress(Movable):
 
     # Python-compatible attributes
     var unused_data: List[UInt8]
+    """A bytes object which contains any bytes past the end of the compressed data.
+    That is, if the input data contains compressed data followed by extra data,
+    this attribute will contain the extra data. This attribute is always empty
+    until the entire compressed stream has been decompressed."""
+
     var unconsumed_tail: List[UInt8]
+    """A bytes object that contains any data that was not consumed by the last
+    decompress() call because it exceeded the limit on the uncompressed data.
+    This data has not yet been seen by the zlib machinery, so you must feed it
+    (possibly with further data concatenated to it) back to a subsequent
+    decompress() method call in order to get correct output."""
+
     var eof: Bool
+    """True if the end-of-stream marker has been reached."""
 
     fn __init__(out self, wbits: Int32 = MAX_WBITS) raises:
         self.handle = get_zlib_dl_handle()
@@ -266,16 +284,25 @@ struct Decompress(Movable):
     fn decompress(
         mut self, data: Span[Byte], max_length: Int = -1
     ) raises -> List[UInt8]:
-        """Decompress data incrementally.
+        """Decompress data, returning a bytes object containing uncompressed data
+        corresponding to at least part of the data in data.
 
-        This method matches Python's zlib decompression object API.
+        This data should be concatenated to the output produced by any preceding
+        calls to the decompress() method. Some of the input data may be preserved
+        in internal buffers for later processing.
 
         Args:
             data: Compressed data to decompress.
-            max_length: Maximum number of bytes to return. -1 means no limit.
+            max_length: Maximum number of bytes to return. If this parameter is negative
+                        (the default), there is no limit on the length of the return value.
+                        Otherwise, at most max_length bytes are returned.
 
         Returns:
-            Decompressed data as List[UInt8].
+            Decompressed data as List[UInt8]. May be empty if input data
+            is buffered internally.
+
+        Raises:
+            Error: If the data is invalid, corrupted, or incomplete.
         """
         if len(data) > 0:
             self.feed_input(data)
@@ -296,13 +323,17 @@ struct Decompress(Movable):
             return self.read(max_length)
 
     fn flush(mut self) raises -> List[UInt8]:
-        """Flush any remaining data.
+        """Return a bytes object containing any remaining uncompressed data.
 
-        This method matches Python's zlib decompression object API.
-        Returns any remaining decompressed data.
+        This method is primarily used to force any remaining uncompressed data
+        in internal buffers to be returned. Calling flush() is not normally needed
+        as decompress() returns any complete uncompressed data.
 
         Returns:
             Any remaining decompressed data as List[UInt8].
+
+        Raises:
+            Error: If there are issues finalizing the decompression.
         """
         var result = List[UInt8]()
         while not self.is_finished():
