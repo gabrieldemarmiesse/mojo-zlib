@@ -11,7 +11,7 @@ repository = "https://github.com/gabrieldemarmiesse/mojo-zlib"
 preview = ["pixi-build"]
 
 [tasks]
-test = "mojo test -I . tests/"
+test = "mojo test -I ./src tests/"
 format = "mojo format"
 template = "python scripts/util.py generate-recipe"
 build = { cmd = "python scripts/util.py build-conda-package" }
