@@ -15,15 +15,18 @@ def to_py_bytes(data: Span[UInt8]) -> PythonObject:
         result_as_list.append(byte)
     return py_builtins.bytes(result_as_list)
 
+
 fn to_mojo_bytes(some_data: PythonObject) raises -> List[UInt8]:
     result = List[UInt8]()
     for byte in some_data:
         result.append(UInt8(Int(byte)))
     return result
 
+
 fn to_mojo_string(some_data: PythonObject) raises -> String:
     mojo_bytes = to_mojo_bytes(some_data)
     return String(bytes=mojo_bytes)
+
 
 fn assert_lists_are_equal(
     list1: Span[UInt8],
@@ -44,6 +47,7 @@ fn assert_lists_are_equal(
                 + String(list2[i])
                 + ")"
             )
+
 
 def test_mojo_vs_python_decompress(
     test_data: Span[UInt8],
@@ -74,10 +78,12 @@ def test_mojo_vs_python_decompress(
         print("Error in test_mojo_vs_python_decompress:", e)
         raise e
 
+
 def compress_string_with_python(
     text: StringSlice, wbits: Int = 15
 ) -> List[UInt8]:
     return compress_binary_data_with_python(text.as_bytes(), wbits=wbits)
+
 
 def compress_binary_data_with_python(
     data: Span[UInt8], wbits: Int = 15
