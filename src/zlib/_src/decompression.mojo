@@ -41,7 +41,7 @@ fn decompress(
                - 9 to 15: zlib format with header and checksum
                - -9 to -15: raw deflate format without header or checksum
                - 16 + (9 to 15): gzip format with header and checksum
-               - Values 32-47: automatic header detection (zlib or gzip)
+               - Values 32-47: automatic header detection (zlib or gzip).
         bufsize: Initial size of the output buffer used to hold decompressed data.
                  The default size is 16384.
 
@@ -82,7 +82,7 @@ fn decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress:
                - 9 to 15: zlib format with header and checksum
                - -9 to -15: raw deflate format without header or checksum
                - 16 + (9 to 15): gzip format with header and checksum
-               - Values 32-47: automatic header detection (zlib or gzip)
+               - Values 32-47: automatic header detection (zlib or gzip).
 
     Returns:
         A Decompress object that can decompress data incrementally.

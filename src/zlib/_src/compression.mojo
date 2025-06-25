@@ -45,7 +45,7 @@ fn compress(
         wbits: Window bits parameter controlling the compression format and window size:
                - 9 to 15: zlib format with header and checksum
                - -9 to -15: raw deflate format without header or checksum
-               - 16 + (9 to 15): gzip format with header and checksum
+               - 16 + (9 to 15): gzip format with header and checksum.
 
     Returns:
         Compressed data as List[Byte].
@@ -87,7 +87,7 @@ fn compressobj(
         wbits: Window bits parameter controlling the compression format and window size:
                - 9 to 15: zlib format with header and checksum
                - -9 to -15: raw deflate format without header or checksum
-               - 16 + (9 to 15): gzip format with header and checksum
+               - 16 + (9 to 15): gzip format with header and checksum.
         memLevel: Controls the amount of memory used for compression. Valid values are
                   from 1 to 9. Higher values use more memory but are faster and produce
                   smaller output.

@@ -26,23 +26,6 @@ def load_project_config() -> dict[str, Any]:
 PROJECT_CONFIG = load_project_config()
 
 
-class TemporaryBuildDirectory:
-    """Context manager to create a temporary build directory."""
-    def __enter__(self) -> Path:
-        TEMP_DIR.mkdir(parents=True, exist_ok=True)
-        package = PROJECT_CONFIG["package"]["name"]
-        subprocess.run(
-            ["mojo", "package", f"src/{package}", "-o", f"{TEMP_DIR}/{package}.mojopkg"],
-            check=True,
-        )
-        return TEMP_DIR
-
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        if TEMP_DIR.exists():
-            shutil.rmtree(TEMP_DIR)
-            print("Temporary build directory removed.")
-
-
 def format_dependency(name: str, version: str) -> str:
     """Converts the list of dependencies from the pixi.toml into a list of strings for the recipe."""
     start = 0
@@ -79,7 +62,7 @@ def generate_recipe() -> None:
 
     # Populate package information
     package_name = "zlib"
-    recipe["package"]["name"] = package_name
+    recipe["package"]["name"] = PROJECT_CONFIG["package"]["name"]
     recipe["package"]["version"] = PROJECT_CONFIG["package"]["version"]
 
     # Populate source files
@@ -139,66 +122,6 @@ def prepare_temp_directory() -> None:
         ["mojo", "package", f"src/{package}", "-o", f"{TEMP_DIR}/{package}.mojopkg"],
         check=True,
     )
-
-
-@app.command()
-def run_tests(path: str | None = None) -> None:
-    """Executes the tests for the package."""
-    TEST_DIR = Path("src/test")
-
-    print("Building package and copying tests.")
-    with TemporaryBuildDirectory() as temp_directory:
-        shutil.copytree(TEST_DIR, temp_directory, dirs_exist_ok=True)
-        target = temp_directory
-        if path:
-            target = target / path
-        print(f"Running tests at {target}...")
-        subprocess.run(["mojo", "test", target], check=True)
-
-
-@app.command()
-def run_examples(path: str | None = None) -> None:
-    """Executes the examples for the package."""
-    EXAMPLE_DIR = Path("examples")
-    if not EXAMPLE_DIR.exists():
-        print(f"Path does not exist: {EXAMPLE_DIR}.")
-        return
-
-    print("Building package and copying examples.")
-    with TemporaryBuildDirectory() as temp_directory:
-        shutil.copytree(EXAMPLE_DIR, temp_directory, dirs_exist_ok=True)
-        example_files = EXAMPLE_DIR.glob("*.mojo")
-        if path:
-            example_files = EXAMPLE_DIR.glob(path)
-
-        print(f"Running examples in {example_files}...")
-        for file in example_files:
-            name, _ = file.name.split(".", 1)
-            shutil.copyfile(file, temp_directory / file.name)
-            subprocess.run(["mojo", "build", temp_directory / file.name, "-o", temp_directory / name], check=True)
-            subprocess.run([temp_directory / name], check=True)
-
-
-@app.command()
-def run_benchmarks(path: str | None = None) -> None:
-    BENCHMARK_DIR = Path("benchmarks")
-    if not BENCHMARK_DIR.exists():
-        print(f"Path does not exist: {BENCHMARK_DIR}.")
-        return
-
-    print("Building package and copying benchmarks.")
-    with TemporaryBuildDirectory() as temp_directory:
-        shutil.copytree(BENCHMARK_DIR, temp_directory, dirs_exist_ok=True)
-        benchmark_files = BENCHMARK_DIR.glob("*.mojo")
-        if path:
-            benchmark_files = BENCHMARK_DIR.glob(path)
-
-        print(f"Running benchmarks in {benchmark_files}...")
-        for file in benchmark_files:
-            name, _ = file.name.split(".", 1)
-            shutil.copyfile(file, temp_directory / file.name)
-            subprocess.run(["mojo", "build", temp_directory / file.name, "-o", temp_directory / name], check=True)
-            subprocess.run([temp_directory / name], check=True)
 
 
 @app.command()

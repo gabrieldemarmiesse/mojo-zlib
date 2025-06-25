@@ -24,7 +24,7 @@ zlib = ">=1.3.1"
 
 [package]
 name = "mojo-zlib"
-version = "0.1.0"
+version = "0.1.1"
 
 [package.build]
 backend = { name = "pixi-build-rattler-build", version = "*" }
