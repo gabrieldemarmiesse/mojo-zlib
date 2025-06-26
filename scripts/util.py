@@ -83,6 +83,7 @@ def generate_recipe() -> None:
     recipe["about"]["license"] = PROJECT_CONFIG["workspace"]["license"]
     recipe["about"]["license_file"] = PROJECT_CONFIG["workspace"]["license-file"]
     recipe["about"]["summary"] = PROJECT_CONFIG["workspace"]["description"]
+    recipe["about"]["description"] = Path("README.md").read_text()
     recipe["about"]["repository"] = PROJECT_CONFIG["workspace"]["repository"]
 
     # Write the final recipe.
