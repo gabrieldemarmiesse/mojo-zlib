@@ -23,6 +23,6 @@ jobs:
       run: pixi run pre-commit install
     
     - name: Run pre-commit checks
-      run: pixi run pre-commit run --all-files
+      run: pixi x pre-commit run --all-files
     - name: Run tests
       run: pixi run test
