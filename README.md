@@ -8,7 +8,7 @@ Make sure that you have `https://repo.prefix.dev/mojo-community` in the `channel
 Then, you can install the library with:
 
 ```bash
-pixi install mojo-zlib
+pixi add mojo-zlib
 ```
 
 ### Common issues:
