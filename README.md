@@ -2,6 +2,27 @@
 
 A Mojo implementation of the Python zlib library, providing compression, decompression, and checksum functionality. This library offers a Python-compatible API for zlib operations in Mojo, enabling seamless migration from Python code.
 
+## Installation with Pixi
+
+Make sure that you have `https://repo.prefix.dev/mojo-community` in the `channels` list of your `pixi.toml` file.
+Then, you can install the library with:
+
+```bash
+pixi install mojo-zlib
+```
+
+### Common issues:
+
+If your IDE tells you "Cannot find module 'zlib'": you have to go to the extensions menu, look for the Mojo or Mojo nightly extension,
+and click on the "Settings" icon. Then you'll find a section called "Mojo › Lsp: Include Dirs". Add the following path to the list:
+
+```bash
+.pixi/envs/default/lib/mojo
+```
+This is where Pixi adds the `.mojopkg` files.
+
+Then restart your IDE or just the Mojo extension and it should work.
+
 ## Useful links:
 
 - [Documentation](https://github.com/gabrieldemarmiesse/mojo-zlib)
