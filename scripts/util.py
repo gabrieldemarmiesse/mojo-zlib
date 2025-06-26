@@ -42,7 +42,7 @@ def format_dependency(name: str, version: str) -> str:
 
 
 @app.command()
-def generate_recipe(package_version: str) -> None:
+def generate_recipe() -> None:
     """Generates a recipe for the project based on the project configuration in the pixi.toml."""
     # Replace the placeholders in the recipe with the project configuration.
     recipe = {
@@ -63,7 +63,7 @@ def generate_recipe(package_version: str) -> None:
     # Populate package information
     package_name = "zlib"
     recipe["package"]["name"] = PROJECT_CONFIG["package"]["name"]
-    recipe["package"]["version"] = package_version
+    recipe["package"]["version"] = PROJECT_CONFIG["package"]["version"]
 
     # Populate source files
     recipe["source"].append({"path": "src"})
@@ -106,11 +106,11 @@ def publish(channel: str) -> None:
 
 
 @app.command()
-def build_conda_package(package_version: str) -> None:
+def build_conda_package() -> None:
     """Builds the conda package for the project."""
     # Generate the recipe if it does not exist already.
     if not RECIPE_PATH.exists():
-        generate_recipe(package_version)
+        generate_recipe()
 
     subprocess.run(
         ["pixi", "build", "-o", CONDA_BUILD_PATH],
@@ -120,9 +120,9 @@ def build_conda_package(package_version: str) -> None:
 
 
 @app.command()
-def build_and_publish(package_version: str) -> None:
+def build_and_publish() -> None:
     """Builds the conda package and publishes it to the specified channel."""
-    build_conda_package(package_version)
+    build_conda_package()
     publish("mojo-community")
 
 
