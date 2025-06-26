@@ -16,6 +16,7 @@ format = "mojo format"
 template = "python scripts/util.py generate-recipe"
 build = { cmd = "python scripts/util.py build-conda-package" }
 publish = { cmd = "python scripts/util.py publish", env = { PREFIX_API_KEY = "$PREFIX_API_KEY" } }
+build-and-publish = { cmd = "python scripts/util.py build-and-publish" }
 
 [dependencies]
 max = ">=25.3.0.dev2025042605"

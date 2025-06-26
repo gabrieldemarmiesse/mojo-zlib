@@ -97,32 +97,12 @@ def publish(channel: str) -> None:
     print(f"Publishing packages to: {channel}, from {CONDA_BUILD_PATH}.")
     for file in glob.glob(f'{CONDA_BUILD_PATH}/*.conda'):
         print(f"Uploading {file} to {channel}...")
-        try:
-            subprocess.run(
-                ["pixi", "upload", f"https://prefix.dev/api/v1/upload/{channel}", file],
-                check=True,
-            )
-        except subprocess.CalledProcessError:
-            pass
+        subprocess.run(
+            ["pixi", "upload", f"https://prefix.dev/api/v1/upload/{channel}", file],
+            check=True,
+        )
+        
         os.remove(file)
-
-
-def remove_temp_directory() -> None:
-    """Removes the temporary directory used for building the package."""
-    if TEMP_DIR.exists():
-        print("Removing temp directory.")
-        shutil.rmtree(TEMP_DIR)
-
-
-def prepare_temp_directory() -> None:
-    """Creates the temporary directory used for building the package. Adds the compiled mojo package to the directory."""
-    remove_temp_directory()
-    TEMP_DIR.mkdir()
-    package = PROJECT_CONFIG["package"]["name"]
-    subprocess.run(
-        ["mojo", "package", f"src/{package}", "-o", f"{TEMP_DIR}/{package}.mojopkg"],
-        check=True,
-    )
 
 
 @app.command()
@@ -137,6 +117,13 @@ def build_conda_package() -> None:
         check=True,
     )
     os.remove("recipe.yaml")
+
+
+@app.command()
+def build_and_publish() -> None:
+    """Builds the conda package and publishes it to the specified channel."""
+    build_conda_package()
+    publish("mojo-community")
 
 
 if __name__ == "__main__":
