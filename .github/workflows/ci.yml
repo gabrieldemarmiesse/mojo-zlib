@@ -20,7 +20,7 @@ jobs:
         pixi-version: v0.42.0
 
     - name: Install pre-commit hooks
-      run: pixi run pre-commit install
+      run: pixi x pre-commit install
     
     - name: Run pre-commit checks
       run: pixi x pre-commit run --all-files
