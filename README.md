@@ -2,6 +2,11 @@
 
 A Mojo implementation of the Python zlib library, providing compression, decompression, and checksum functionality. This library offers a Python-compatible API for zlib operations in Mojo, enabling seamless migration from Python code.
 
+## Useful links:
+
+- [Documentation](https://github.com/gabrieldemarmiesse/mojo-zlib)
+- [Source Code](https://github.com/gabrieldemarmiesse/mojo-zlib)
+
 ## Features
 
 - **Compression & Decompression**: Full support for DEFLATE algorithm with zlib, gzip, and raw deflate formats
@@ -19,6 +24,12 @@ Run the unit tests with
 
 ```bash
 pixi run test
+```
+
+Install the pre-commit with 
+
+```bash
+pixi x pre-commit install
 ```
 
 ## Quick Start
