@@ -217,3 +217,24 @@ from .zlib_shared_object import get_zlib_dl_handle
 - Mojo API docs: <https://docs.modular.com/llms-mojo.txt>
 - Python API docs: <https://docs.modular.com/llms-python.txt>
 - Comprehensive docs: <https://docs.modular.com/llms-full.txt>
+
+
+## Tips
+
+the following lists all tests: `pixi run mojo test -I ./src --collect-only tests/`.
+The output looks like this:
+```
+</projects/open_source/mojo-zlib/tests>
+  </projects/open_source/mojo-zlib/tests/test_adler32.mojo>
+    </projects/open_source/mojo-zlib/tests/test_adler32.mojo::test_adler32_basic()>
+    </projects/open_source/mojo-zlib/tests/test_adler32.mojo::test_adler32_with_starting_value()>
+    </projects/open_source/mojo-zlib/tests/test_adler32.mojo::test_adler32_concatenation()>
+    </projects/open_source/mojo-zlib/tests/test_adler32.mojo::test_adler32_return_type()>
+    </projects/open_source/mojo-zlib/tests/test_adler32.mojo::test_adler32_binary_data()>
+    </projects/open_source/mojo-zlib/tests/test_adler32.mojo::test_adler32_repeated_calls()>
+  </projects/open_source/mojo-zlib/tests/test_adler32_python_compatibility.mojo>
+    </projects/open_source/mojo-zlib/tests/test_adler32_python_compatibility.mojo::test_adler32_empty_data_python_compatibility()>
+    </projects/open_source/mojo-zlib/tests/test_adler32_python_compatibility.mojo::test_adler32_hello_python_compatibility()>
+```
+
+To run one single unit test, run `pixi run mojo test -I ./src 'tests/test_adler32.mojo::test_adler32_basic()'`.
