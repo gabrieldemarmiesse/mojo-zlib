@@ -13,10 +13,6 @@ preview = ["pixi-build"]
 [tasks]
 test = "mojo test -I ./src tests/"
 format = "mojo format"
-template = "python scripts/util.py generate-recipe"
-build = { cmd = "python scripts/util.py build-conda-package" }
-publish = { cmd = "python scripts/util.py publish", env = { PREFIX_API_KEY = "$PREFIX_API_KEY" } }
-build-and-publish = { cmd = "python scripts/util.py build-and-publish" }
 
 [dependencies]
 max = ">=25.3.0.dev2025042605"
@@ -32,6 +28,9 @@ backend = { name = "pixi-build-rattler-build", version = "*" }
 [feature.util.dependencies]
 typer = ">=0.16.0,<0.17"
 pyyaml = ">=6.0.2,<7"
+
+[feature.util.tasks]
+publish = "python scripts/publish.py build-and-publish"
 
 [environments]
 default = { solve-group = "default" }

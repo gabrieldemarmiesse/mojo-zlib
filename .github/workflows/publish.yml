@@ -36,4 +36,4 @@ jobs:
 
         run: |
           pixi auth login prefix.dev --token "${{ secrets.PREFIX_API_KEY }}"
-          pixi run -e util build-and-publish
+          pixi run publish
