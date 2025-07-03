@@ -111,18 +111,18 @@ struct Compress(Movable):
     retrieve the compressed data.
     """
 
-    var stream: ZStream
-    var handle: ffi.DLHandle
-    var deflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
-    var deflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
+    var _stream: ZStream
+    var _handle: ffi.DLHandle
+    var _deflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
+    var _deflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
     var _initialized: Bool
-    var finished: Bool
-    var level: Int32
-    var method: Int32
-    var wbits: Int32
-    var memLevel: Int32
-    var strategy: Int32
-    var output_buffer: List[UInt8]
+    var _finished: Bool
+    var _level: Int32
+    var _method: Int32
+    var _wbits: Int32
+    var _memLevel: Int32
+    var _strategy: Int32
+    var _output_buffer: List[UInt8]
 
     fn __init__(
         out self,
@@ -132,13 +132,13 @@ struct Compress(Movable):
         memLevel: Int32 = DEF_MEM_LEVEL,
         strategy: Int32 = Z_DEFAULT_STRATEGY,
     ) raises:
-        self.handle = get_zlib_dl_handle()
-        self.deflate_fn = self.handle.get_function[deflate_type]("deflate")
-        self.deflateEnd = self.handle.get_function[deflateEnd_type](
+        self._handle = get_zlib_dl_handle()
+        self._deflate_fn = self._handle.get_function[deflate_type]("deflate")
+        self._deflateEnd = self._handle.get_function[deflateEnd_type](
             "deflateEnd"
         )
 
-        self.stream = ZStream(
+        self._stream = ZStream(
             next_in=UnsafePointer[Bytef](),
             avail_in=0,
             total_in=0,
@@ -156,32 +156,32 @@ struct Compress(Movable):
         )
 
         self._initialized = False
-        self.finished = False
-        self.level = level
-        self.method = method
-        self.wbits = wbits
-        self.memLevel = memLevel
-        self.strategy = strategy
+        self._finished = False
+        self._level = level
+        self._method = method
+        self._wbits = wbits
+        self._memLevel = memLevel
+        self._strategy = strategy
         # Use 64KB output buffer
-        self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
-        self.output_buffer.resize(BUFFER_SIZE, 0)
+        self._output_buffer = List[UInt8](capacity=BUFFER_SIZE)
+        self._output_buffer.resize(BUFFER_SIZE, 0)
 
     fn _make_sure_initialized(mut self) raises:
         """Initialize the zlib stream for compression."""
         if self._initialized:
             return
 
-        var deflateInit2 = self.handle.get_function[deflateInit2_type](
+        var deflateInit2 = self._handle.get_function[deflateInit2_type](
             "deflateInit2_"
         )
         var zlib_version = String("1.2.11")
         var init_res = deflateInit2(
-            UnsafePointer(to=self.stream),
-            self.level,
-            self.method,
-            self.wbits,
-            self.memLevel,
-            self.strategy,
+            UnsafePointer(to=self._stream),
+            self._level,
+            self._method,
+            self._wbits,
+            self._memLevel,
+            self._strategy,
             zlib_version.unsafe_cstr_ptr().bitcast[UInt8](),
             Int32(sys.sizeof[ZStream]()),
         )
@@ -211,7 +211,7 @@ struct Compress(Movable):
         """
         self._make_sure_initialized()
 
-        if self.finished:
+        if self._finished:
             raise Error("Cannot compress data after flush() has been called")
 
         if len(data) == 0:
@@ -220,27 +220,27 @@ struct Compress(Movable):
         var result = List[UInt8]()
 
         # Set up input
-        self.stream.next_in = data.unsafe_ptr()
-        self.stream.avail_in = UInt32(len(data))
+        self._stream.next_in = data.unsafe_ptr()
+        self._stream.avail_in = UInt32(len(data))
 
         # Compress in chunks
-        while self.stream.avail_in > 0:
-            self.stream.next_out = self.output_buffer.unsafe_ptr()
-            self.stream.avail_out = UInt32(len(self.output_buffer))
+        while self._stream.avail_in > 0:
+            self._stream.next_out = self._output_buffer.unsafe_ptr()
+            self._stream.avail_out = UInt32(len(self._output_buffer))
 
-            var deflate_result = self.deflate_fn(
-                UnsafePointer(to=self.stream), Z_NO_FLUSH
+            var deflate_result = self._deflate_fn(
+                UnsafePointer(to=self._stream), Z_NO_FLUSH
             )
 
             if deflate_result != Z_OK:
                 log_zlib_result(deflate_result, compressing=True)
 
             # Copy output data
-            var output_size = len(self.output_buffer) - Int(
-                self.stream.avail_out
+            var output_size = len(self._output_buffer) - Int(
+                self._stream.avail_out
             )
             for i in range(output_size):
-                result.append(self.output_buffer[i])
+                result.append(self._output_buffer[i])
 
         return result
 
@@ -261,32 +261,32 @@ struct Compress(Movable):
         """
         self._make_sure_initialized()
 
-        if self.finished:
+        if self._finished:
             return List[UInt8]()
 
         var result = List[UInt8]()
 
         # Finish compression
-        self.stream.avail_in = 0
-        self.stream.next_in = UnsafePointer[Bytef]()
+        self._stream.avail_in = 0
+        self._stream.next_in = UnsafePointer[Bytef]()
 
         while True:
-            self.stream.next_out = self.output_buffer.unsafe_ptr()
-            self.stream.avail_out = UInt32(len(self.output_buffer))
+            self._stream.next_out = self._output_buffer.unsafe_ptr()
+            self._stream.avail_out = UInt32(len(self._output_buffer))
 
-            var deflate_result = self.deflate_fn(
-                UnsafePointer(to=self.stream), Z_FINISH
+            var deflate_result = self._deflate_fn(
+                UnsafePointer(to=self._stream), Z_FINISH
             )
 
             # Copy output data
-            var output_size = len(self.output_buffer) - Int(
-                self.stream.avail_out
+            var output_size = len(self._output_buffer) - Int(
+                self._stream.avail_out
             )
             for i in range(output_size):
-                result.append(self.output_buffer[i])
+                result.append(self._output_buffer[i])
 
             if deflate_result == Z_STREAM_END:
-                self.finished = True
+                self._finished = True
                 break
             elif deflate_result != Z_OK:
                 log_zlib_result(deflate_result, compressing=True)
@@ -295,4 +295,4 @@ struct Compress(Movable):
 
     fn __del__(owned self):
         if self._initialized:
-            _ = self.deflateEnd(UnsafePointer(to=self.stream))
+            _ = self._deflateEnd(UnsafePointer(to=self._stream))
