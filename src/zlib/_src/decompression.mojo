@@ -102,17 +102,17 @@ struct Decompress(Movable):
     information about the decompression process.
     """
 
-    var stream: ZStream
-    var handle: ffi.DLHandle
-    var inflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
-    var inflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
+    var _stream: ZStream
+    var _handle: ffi.DLHandle
+    var _inflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
+    var _inflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
     var _initialized: Bool
-    var finished: Bool
-    var input_buffer: List[UInt8]
-    var output_buffer: List[UInt8]
-    var output_pos: Int
-    var output_available: Int
-    var wbits: Int32
+    var _finished: Bool
+    var _input_buffer: List[UInt8]
+    var _output_buffer: List[UInt8]
+    var _output_pos: Int
+    var _output_available: Int
+    var _wbits: Int32
 
     # Python-compatible attributes
     var unused_data: List[UInt8]
@@ -132,13 +132,13 @@ struct Decompress(Movable):
     """True if the end-of-stream marker has been reached."""
 
     fn __init__(out self, wbits: Int32 = MAX_WBITS) raises:
-        self.handle = get_zlib_dl_handle()
-        self.inflate_fn = self.handle.get_function[inflate_type]("inflate")
-        self.inflateEnd = self.handle.get_function[inflateEnd_type](
+        self._handle = get_zlib_dl_handle()
+        self._inflate_fn = self._handle.get_function[inflate_type]("inflate")
+        self._inflateEnd = self._handle.get_function[inflateEnd_type](
             "inflateEnd"
         )
 
-        self.stream = ZStream(
+        self._stream = ZStream(
             next_in=UnsafePointer[Bytef](),
             avail_in=0,
             total_in=0,
@@ -156,14 +156,14 @@ struct Decompress(Movable):
         )
 
         self._initialized = False
-        self.finished = False
-        self.input_buffer = List[UInt8]()
+        self._finished = False
+        self._input_buffer = List[UInt8]()
         # Use 64KB output buffer to balance memory usage and performance
-        self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
-        self.output_buffer.resize(BUFFER_SIZE, 0)
-        self.output_pos = 0
-        self.output_available = 0
-        self.wbits = wbits
+        self._output_buffer = List[UInt8](capacity=BUFFER_SIZE)
+        self._output_buffer.resize(BUFFER_SIZE, 0)
+        self._output_pos = 0
+        self._output_available = 0
+        self._wbits = wbits
 
         # Initialize Python-compatible attributes
         self.unused_data = List[UInt8]()
@@ -175,13 +175,13 @@ struct Decompress(Movable):
         if self._initialized:
             return
 
-        var inflateInit2 = self.handle.get_function[inflateInit2_type](
+        var inflateInit2 = self._handle.get_function[inflateInit2_type](
             "inflateInit2_"
         )
         var zlib_version = String("1.2.11")
         var init_res = inflateInit2(
-            UnsafePointer(to=self.stream),
-            self.wbits,
+            UnsafePointer(to=self._stream),
+            self._wbits,
             zlib_version.unsafe_cstr_ptr().bitcast[UInt8](),
             Int32(sys.sizeof[ZStream]()),
         )
@@ -194,63 +194,65 @@ struct Decompress(Movable):
     fn feed_input(mut self, data: Span[Byte]):
         """Feed compressed input data to the decompressor."""
         for byte in data:
-            self.input_buffer.append(byte)
+            self._input_buffer.append(byte)
 
     fn _decompress_available(mut self) raises -> Bool:
         """Try to decompress some data from input buffer. Returns True if output was produced.
         """
         self._make_sure_initialized()
 
-        if self.finished or len(self.input_buffer) == 0:
+        if self._finished or len(self._input_buffer) == 0:
             return False
 
         # Set up input
-        self.stream.next_in = self.input_buffer.unsafe_ptr()
-        self.stream.avail_in = UInt32(len(self.input_buffer))
+        self._stream.next_in = self._input_buffer.unsafe_ptr()
+        self._stream.avail_in = UInt32(len(self._input_buffer))
 
         # Reset output buffer
-        self.output_pos = 0
-        self.output_available = 0
-        self.stream.next_out = self.output_buffer.unsafe_ptr()
-        self.stream.avail_out = UInt32(len(self.output_buffer))
+        self._output_pos = 0
+        self._output_available = 0
+        self._stream.next_out = self._output_buffer.unsafe_ptr()
+        self._stream.avail_out = UInt32(len(self._output_buffer))
 
         # Decompress
-        var result = self.inflate_fn(UnsafePointer(to=self.stream), Z_NO_FLUSH)
+        var result = self._inflate_fn(
+            UnsafePointer(to=self._stream), Z_NO_FLUSH
+        )
 
         if result == Z_STREAM_END:
-            self.finished = True
+            self._finished = True
             self.eof = True
             # Any remaining input becomes unused_data
-            if Int(self.stream.avail_in) > 0:
+            if Int(self._stream.avail_in) > 0:
                 self.unused_data.clear()
                 self.unused_data.extend(
-                    self.input_buffer[
-                        len(self.input_buffer) - Int(self.stream.avail_in) :
+                    self._input_buffer[
+                        len(self._input_buffer) - Int(self._stream.avail_in) :
                     ]
                 )
         elif result != Z_OK:
             log_zlib_result(result, compressing=False)
 
         # Calculate how much output was produced
-        self.output_available = len(self.output_buffer) - Int(
-            self.stream.avail_out
+        self._output_available = len(self._output_buffer) - Int(
+            self._stream.avail_out
         )
 
         # Update unconsumed_tail and remove consumed input
-        var consumed = len(self.input_buffer) - Int(self.stream.avail_in)
+        var consumed = len(self._input_buffer) - Int(self._stream.avail_in)
 
         # Remove consumed input from buffer
         if consumed > 0:
             var new_input = List[UInt8]()
-            for i in range(consumed, len(self.input_buffer)):
-                new_input.append(self.input_buffer[i])
-            self.input_buffer = new_input^
+            for i in range(consumed, len(self._input_buffer)):
+                new_input.append(self._input_buffer[i])
+            self._input_buffer = new_input^
 
         # unconsumed_tail always contains what's left in input_buffer
         self.unconsumed_tail.clear()
-        self.unconsumed_tail.extend(self.input_buffer)
+        self.unconsumed_tail.extend(self._input_buffer)
 
-        return self.output_available > 0
+        return self._output_available > 0
 
     fn read(mut self, size: Int) raises -> List[UInt8]:
         """Read up to 'size' bytes of decompressed data."""
@@ -259,13 +261,13 @@ struct Decompress(Movable):
 
         while remaining > 0:
             # If we have data in output buffer, use it first
-            if self.output_available > 0:
-                var to_copy = min(remaining, self.output_available)
+            if self._output_available > 0:
+                var to_copy = min(remaining, self._output_available)
                 for i in range(to_copy):
-                    result.append(self.output_buffer[self.output_pos + i])
+                    result.append(self._output_buffer[self._output_pos + i])
 
-                self.output_pos += to_copy
-                self.output_available -= to_copy
+                self._output_pos += to_copy
+                self._output_available -= to_copy
                 remaining -= to_copy
                 continue
 
@@ -278,7 +280,7 @@ struct Decompress(Movable):
 
     fn is_finished(self) -> Bool:
         """Check if decompression is complete."""
-        return self.finished and self.output_available == 0
+        return self._finished and self._output_available == 0
 
     fn decompress(
         mut self, data: Span[Byte], max_length: Int = -1
@@ -344,4 +346,4 @@ struct Decompress(Movable):
 
     fn __del__(owned self):
         if self._initialized:
-            _ = self.inflateEnd(UnsafePointer(to=self.stream))
+            _ = self._inflateEnd(UnsafePointer(to=self._stream))
