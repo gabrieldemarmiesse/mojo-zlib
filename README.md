@@ -29,6 +29,8 @@ Then restart your IDE or just the Mojo extension and it should work.
 
 - [Documentation](https://github.com/gabrieldemarmiesse/mojo-zlib)
 - [Source Code](https://github.com/gabrieldemarmiesse/mojo-zlib)
+- [C zlib documentation](https://zlib.net/manual.html)
+- [Python zlib documentation](https://docs.python.org/3/library/zlib.html)
 
 ## Features
 
@@ -117,7 +119,7 @@ Note that those are implemented in Mojo and thus do not require `libz.so` to be 
 ### compress
 
 ```mojo
-fn compress(data: Span[UInt8], level: Int32 = -1, wbits: Int32 = MAX_WBITS) raises -> List[UInt8]
+zlib.compress(data: Span[UInt8], level: Int32 = -1, wbits: Int32 = zlib.MAX_WBITS) raises -> List[UInt8]
 ```
 
 Compresses the bytes in data, returning a `List[UInt8]` containing compressed data.
@@ -138,31 +140,10 @@ Compresses the bytes in data, returning a `List[UInt8]` containing compressed da
 
 **Raises:** `Error` if compression fails or invalid parameters are provided
 
-### compressobj
-
-```mojo
-fn compressobj(level: Int32 = -1, method: Int32 = Z_DEFLATED, wbits: Int32 = MAX_WBITS, memLevel: Int32 = DEF_MEM_LEVEL, strategy: Int32 = Z_DEFAULT_STRATEGY) raises -> Compress
-```
-
-Return a compression object whose `compress()` method takes a `Span[UInt8]` and returns compressed data for a portion of the data.
-
-The returned object also has `flush()` methods. This allows for incremental compression; it can be more efficient when compressing very large amounts of data.
-
-**Parameters:**
-- `level`: Compression level (same as `compress()`)
-- `method`: The compression algorithm. Currently, only `DEFLATED` is supported
-- `wbits`: Window bits parameter (same as `compress()`)
-- `memLevel`: Controls memory used for compression. Valid values 1-9. Higher values use more memory but are faster
-- `strategy`: Compression strategy: `Z_DEFAULT_STRATEGY`, `Z_FILTERED`, `Z_HUFFMAN_ONLY`, `Z_RLE`, `Z_FIXED`
-
-**Returns:** A `Compress` object for incremental compression
-
-**Raises:** `Error` if compression initialization fails or invalid parameters provided
-
 ### decompress
 
 ```mojo
-fn decompress(data: Span[UInt8], wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE) raises -> List[UInt8]
+zlib.decompress(data: Span[UInt8], wbits: Int32 = zlib.MAX_WBITS, bufsize: Int = zlib.DEF_BUF_SIZE) raises -> List[UInt8]
 ```
 
 Decompresses the bytes in data, returning a bytes object containing the uncompressed data.
@@ -180,27 +161,10 @@ Decompresses the bytes in data, returning a bytes object containing the uncompre
 
 **Raises:** `Error` if the compressed data is invalid, corrupted, or incomplete
 
-### decompressobj
-
-```mojo
-fn decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress
-```
-
-Return a decompression object whose `decompress()` method takes a bytes object and returns decompressed data for a portion of the data.
-
-The returned object also has `decompress()` and `flush()` methods, and `unused_data`, `unconsumed_tail`, and `eof` attributes. This allows for incremental decompression when decompressing very large amounts of data.
-
-**Parameters:**
-- `wbits`: Window bits parameter (same as `decompress()`)
-
-**Returns:** A `Decompress` object for incremental decompression
-
-**Raises:** `Error` if decompression initialization fails or invalid parameters provided
-
 ### crc32
 
 ```mojo
-fn crc32(data: Span[UInt8], value: UInt32 = 0) -> UInt32
+zlib.crc32(data: Span[UInt8], value: UInt32 = 0) -> UInt32
 ```
 
 Computes a CRC (Cyclic Redundancy Check) checksum of data.
@@ -216,7 +180,7 @@ This computes a 32-bit checksum of data. The result is an unsigned 32-bit intege
 ### adler32
 
 ```mojo
-fn adler32(data: Span[UInt8], value: UInt32 = 1) -> UInt32
+zlib.adler32(data: Span[UInt8], value: UInt32 = 1) -> UInt32
 ```
 
 Computes an Adler-32 checksum of data.
@@ -235,11 +199,32 @@ An Adler-32 checksum is almost as reliable as a CRC32 but can be computed much f
 
 A compression object for compressing data incrementally. Allows compression of data that cannot fit into memory all at once.
 
-**Methods:**
+There are no public attributes.
+
+#### compressobj() (constructor)
+
+```mojo
+zlib.compressobj(level: Int32 = -1, method: Int32 = zlib.Z_DEFLATED, wbits: Int32 = MAX_WBITS, memLevel: Int32 = zlib.DEF_MEM_LEVEL, strategy: Int32 = zlib.Z_DEFAULT_STRATEGY) raises -> zlib.Compress
+```
+
+Return a compression object whose `compress()` method takes a `Span[UInt8]` and returns compressed data for a portion of the data.
+
+The returned object also has `flush()` methods. This allows for incremental compression; it can be more efficient when compressing very large amounts of data.
+
+**Parameters:**
+- `level`: Compression level (same as `compress()`)
+- `method`: The compression algorithm. Currently, only `DEFLATED` is supported
+- `wbits`: Window bits parameter (same as `compress()`)
+- `memLevel`: Controls memory used for compression. Valid values 1-9. Higher values use more memory but are faster
+- `strategy`: Compression strategy: `Z_DEFAULT_STRATEGY`, `Z_FILTERED`, `Z_HUFFMAN_ONLY`, `Z_RLE`, `Z_FIXED`
+
+**Returns:** A `Compress` object for incremental compression
+
+**Raises:** `Error` if compression initialization fails or invalid parameters provided
 
 #### compress()
 ```mojo
-fn compress(mut self, data: Span[UInt8]) raises -> List[UInt8]
+zlib.Compress.compress(mut self, data: Span[UInt8]) raises -> List[UInt8]
 ```
 
 Compress data, returning a `List[UInt8]` containing compressed data for at least part of the data in data. This data should be concatenated to the output produced by any preceding calls to the `compress()` method. Some input may be kept in internal buffers for later processing.
@@ -253,7 +238,7 @@ Compress data, returning a `List[UInt8]` containing compressed data for at least
 
 #### flush()
 ```mojo
-fn flush(mut self) raises -> List[UInt8]
+zlib.Compress.flush(mut self) raises -> List[UInt8]
 ```
 
 Finish the compression process and return a `List[UInt8]` containing any remaining compressed data. This method finishes the compression of any data that might remain in the internal buffers and returns the final compressed data. After calling `flush()`, the compressor object cannot be used again.
@@ -268,15 +253,31 @@ A decompression object for decompressing data incrementally. Allows decompressio
 
 **Attributes:**
 
-- `unused_data: List[UInt8]` - Contains any bytes past the end of the compressed data. Always empty until the entire compressed stream has been decompressed
-- `unconsumed_tail: List[UInt8]` - Contains any data that was not consumed by the last `decompress()` call because it exceeded the limit on the uncompressed data
-- `eof: Bool` - True if the end-of-stream marker has been reached
+- `Compress.unused_data: List[UInt8]` - Contains any bytes past the end of the compressed data. Always empty until the entire compressed stream has been decompressed
+- `Compress.unconsumed_tail: List[UInt8]` - Contains any data that was not consumed by the last `decompress()` call because it exceeded the limit on the uncompressed data
+- `Compress.eof: Bool` - True if the end-of-stream marker has been reached
 
-**Methods:**
+
+#### decompressobj() (constructor)
+
+```mojo
+zlib.decompressobj(wbits: Int32 = zlib.MAX_WBITS) raises -> zlib.Decompress
+```
+
+Return a decompression object whose `decompress()` method takes a bytes object and returns decompressed data for a portion of the data.
+
+The returned object also has `decompress()` and `flush()` methods, and `unused_data`, `unconsumed_tail`, and `eof` attributes. This allows for incremental decompression when decompressing very large amounts of data.
+
+**Parameters:**
+- `wbits`: Window bits parameter (same as `decompress()`)
+
+**Returns:** A `Decompress` object for incremental decompression
+
+**Raises:** `Error` if decompression initialization fails or invalid parameters provided
 
 #### decompress()
 ```mojo
-fn decompress(mut self, data: Span[UInt8], max_length: Int = -1) raises -> List[UInt8]
+zlib.Decompress.decompress(mut self, data: Span[UInt8], max_length: Int = -1) raises -> List[UInt8]
 ```
 
 Decompress data, returning a bytes object containing uncompressed data corresponding to at least part of the data in data. This data should be concatenated to the output produced by any preceding calls to the `decompress()` method.
@@ -291,7 +292,7 @@ Decompress data, returning a bytes object containing uncompressed data correspon
 
 #### flush()
 ```mojo
-fn flush(mut self) raises -> List[UInt8]
+zlib.Decompress.flush(mut self) raises -> List[UInt8]
 ```
 
 Return a bytes object containing any remaining uncompressed data. This method is primarily used to force any remaining uncompressed data in internal buffers to be returned.
