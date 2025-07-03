@@ -54,14 +54,14 @@ fn decompress(
     if len(data) == 0:
         raise Error("Cannot decompress empty data")
     var decompressor = Decompress(wbits)
-    decompressor.feed_input(data)
+    decompressor._feed_input(data)
 
     var result = List[UInt8]()
     result.reserve(bufsize)
 
     # Read all available data in chunks
-    while not decompressor.is_finished():
-        var chunk = decompressor.read(min(bufsize, 65536))
+    while not decompressor._is_finished():
+        var chunk = decompressor._read(min(bufsize, 65536))
         if len(chunk) == 0:
             break
         result += chunk
@@ -191,7 +191,7 @@ struct Decompress(Movable):
 
         self._initialized = True
 
-    fn feed_input(mut self, data: Span[Byte]):
+    fn _feed_input(mut self, data: Span[Byte]):
         """Feed compressed input data to the decompressor."""
         for byte in data:
             self._input_buffer.append(byte)
@@ -254,7 +254,7 @@ struct Decompress(Movable):
 
         return self._output_available > 0
 
-    fn read(mut self, size: Int) raises -> List[UInt8]:
+    fn _read(mut self, size: Int) raises -> List[UInt8]:
         """Read up to 'size' bytes of decompressed data."""
         var result = List[UInt8]()
         var remaining = size
@@ -278,7 +278,7 @@ struct Decompress(Movable):
 
         return result
 
-    fn is_finished(self) -> Bool:
+    fn _is_finished(self) -> Bool:
         """Check if decompression is complete."""
         return self._finished and self._output_available == 0
 
@@ -306,7 +306,7 @@ struct Decompress(Movable):
             Error: If the data is invalid, corrupted, or incomplete.
         """
         if len(data) > 0:
-            self.feed_input(data)
+            self._feed_input(data)
             # Update unconsumed_tail to include new data
             self.unconsumed_tail.extend(data)
 
@@ -314,14 +314,14 @@ struct Decompress(Movable):
             # Return all available data
             var result = List[UInt8]()
             while True:
-                var chunk = self.read(BUFFER_SIZE)  # Read in 64KB chunks
+                var chunk = self._read(BUFFER_SIZE)  # Read in 64KB chunks
                 if len(chunk) == 0:
                     break
                 result += chunk
             return result
         else:
             # Return up to max_length bytes
-            return self.read(max_length)
+            return self._read(max_length)
 
     fn flush(mut self) raises -> List[UInt8]:
         """Return a bytes object containing any remaining uncompressed data.
@@ -337,8 +337,8 @@ struct Decompress(Movable):
             Error: If there are issues finalizing the decompression.
         """
         var result = List[UInt8]()
-        while not self.is_finished():
-            var chunk = self.read(BUFFER_SIZE)  # Read in 64KB chunks
+        while not self._is_finished():
+            var chunk = self._read(BUFFER_SIZE)  # Read in 64KB chunks
             if len(chunk) == 0:
                 break
             result += chunk
