@@ -254,9 +254,9 @@ A decompression object for decompressing data incrementally. Allows decompressio
 
 **Attributes:**
 
-- `Compress.unused_data: List[UInt8]` - Contains any bytes past the end of the compressed data. Always empty until the entire compressed stream has been decompressed
-- `Compress.unconsumed_tail: List[UInt8]` - Contains any data that was not consumed by the last `decompress()` call because it exceeded the limit on the uncompressed data
-- `Compress.eof: Bool` - True if the end-of-stream marker has been reached
+- `Decompress.unused_data: List[UInt8]` - Contains any bytes past the end of the compressed data. Always empty until the entire compressed stream has been decompressed
+- `Decompress.unconsumed_tail: List[UInt8]` - Contains any data that was not consumed by the last `decompress()` call because it exceeded the limit on the uncompressed data
+- `Decompress.eof: Bool` - True if the end-of-stream marker has been reached
 
 
 #### decompressobj() (constructor)
