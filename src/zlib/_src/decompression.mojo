@@ -54,18 +54,9 @@ fn decompress(
     if len(data) == 0:
         raise Error("Cannot decompress empty data")
     var decompressor = Decompress(wbits)
-    decompressor._feed_input(data)
 
-    var result = List[UInt8]()
-    result.reserve(bufsize)
-
-    # Read all available data in chunks
-    while not decompressor._is_finished():
-        var chunk = decompressor._read(min(bufsize, 65536))
-        if len(chunk) == 0:
-            break
-        result += chunk
-
+    var result = decompressor.decompress(data)
+    result += decompressor.flush()
     return result
 
 
