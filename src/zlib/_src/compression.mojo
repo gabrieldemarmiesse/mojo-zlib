@@ -58,10 +58,9 @@ fn compress(
 
     # Compress all data and flush
     var compressed_data = compressor.compress(data)
-    var final_data = compressor.flush()
+    compressed_data += compressor.flush()
 
-    # Combine the results
-    return compressed_data + final_data
+    return compressed_data
 
 
 fn compressobj(
