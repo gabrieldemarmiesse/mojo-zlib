@@ -115,7 +115,7 @@ struct Compress(Movable):
     var handle: ffi.DLHandle
     var deflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
     var deflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
-    var initialized: Bool
+    var _initialized: Bool
     var finished: Bool
     var level: Int32
     var method: Int32
@@ -155,7 +155,7 @@ struct Compress(Movable):
             reserved=0,
         )
 
-        self.initialized = False
+        self._initialized = False
         self.finished = False
         self.level = level
         self.method = method
@@ -166,9 +166,9 @@ struct Compress(Movable):
         self.output_buffer = List[UInt8](capacity=BUFFER_SIZE)
         self.output_buffer.resize(BUFFER_SIZE, 0)
 
-    fn initialize(mut self) raises:
+    fn _make_sure_initialized(mut self) raises:
         """Initialize the zlib stream for compression."""
-        if self.initialized:
+        if self._initialized:
             return
 
         var deflateInit2 = self.handle.get_function[deflateInit2_type](
@@ -189,7 +189,7 @@ struct Compress(Movable):
         if init_res != Z_OK:
             log_zlib_result(init_res, compressing=True)
 
-        self.initialized = True
+        self._initialized = True
 
     fn compress(mut self, data: Span[Byte]) raises -> List[UInt8]:
         """Compress data, returning a `List[UInt8]` containing compressed data
@@ -209,8 +209,7 @@ struct Compress(Movable):
         Raises:
             Error: If compression fails or flush() has already been called.
         """
-        if not self.initialized:
-            self.initialize()
+        self._make_sure_initialized()
 
         if self.finished:
             raise Error("Cannot compress data after flush() has been called")
@@ -260,8 +259,7 @@ struct Compress(Movable):
         Raises:
             Error: If compression finalization fails.
         """
-        if not self.initialized:
-            self.initialize()
+        self._make_sure_initialized()
 
         if self.finished:
             return List[UInt8]()
@@ -296,5 +294,5 @@ struct Compress(Movable):
         return result
 
     fn __del__(owned self):
-        if self.initialized:
+        if self._initialized:
             _ = self.deflateEnd(UnsafePointer(to=self.stream))
