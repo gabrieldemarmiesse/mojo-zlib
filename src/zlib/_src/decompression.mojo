@@ -182,11 +182,6 @@ struct Decompress(Movable):
 
         self._initialized = True
 
-    fn _feed_input(mut self, data: Span[Byte]):
-        """Feed compressed input data to the decompressor."""
-        for byte in data:
-            self._input_buffer.append(byte)
-
     fn _decompress_available(mut self) raises -> Bool:
         """Try to decompress some data from input buffer. Returns True if output was produced.
         """
@@ -297,7 +292,7 @@ struct Decompress(Movable):
             Error: If the data is invalid, corrupted, or incomplete.
         """
         if len(data) > 0:
-            self._feed_input(data)
+            self._input_buffer += List(data)
             # Update unconsumed_tail to include new data
             self.unconsumed_tail.extend(data)
 
