@@ -22,20 +22,22 @@ In Mojo, declaring a local variable with `var` is valid. But the author prefer u
 ## Project Structure
 
 ```
-zlib/
-├── __init__.mojo              # Main module interface
-└── _src/
-    ├── checksums.mojo         # CRC32 and Adler32 implementations
-    ├── compression.mojo       # Compression functions and streaming
-    ├── constants.mojo         # zlib constants and FFI types
-    ├── decompression.mojo     # Decompression functions and streaming
-    ├── utils_testing.mojo     # Testing utilities and Python interop
-    └── zlib_shared_object.mojo # Dynamic library loading
+src/
+└── zlib/
+    ├── __init__.mojo              # Main module interface
+    └── _src/
+        ├── __init__.mojo          # Package initialization
+        ├── checksums.mojo         # CRC32 and Adler32 implementations
+        ├── compression.mojo       # Compression functions and streaming
+        ├── constants.mojo         # zlib constants and FFI types
+        ├── decompression.mojo     # Decompression functions and streaming
+        ├── utils_testing.mojo     # Testing utilities and Python interop
+        └── zlib_shared_object.mojo # Dynamic library loading
 ```
 
 ## Build and Test Commands
 
-- **Run tests**: `pixi run test` (equivalent to `mojo test -I . tests/`)
+- **Run tests**: `pixi run test` (equivalent to `mojo test -I ./src tests/`)
 - **Format code**: `pixi run format` (equivalent to `mojo format`)
 
 ## Key Implementation Details

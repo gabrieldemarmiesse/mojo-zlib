@@ -196,3 +196,4 @@ cython_debug/
 # Claude
 .claude/settings.local.json
 .pixi
+modular/
