@@ -106,7 +106,7 @@ struct Decompress(Movable):
     var handle: ffi.DLHandle
     var inflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
     var inflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
-    var initialized: Bool
+    var _initialized: Bool
     var finished: Bool
     var input_buffer: List[UInt8]
     var output_buffer: List[UInt8]
@@ -155,7 +155,7 @@ struct Decompress(Movable):
             reserved=0,
         )
 
-        self.initialized = False
+        self._initialized = False
         self.finished = False
         self.input_buffer = List[UInt8]()
         # Use 64KB output buffer to balance memory usage and performance
@@ -170,9 +170,9 @@ struct Decompress(Movable):
         self.unconsumed_tail = List[UInt8]()
         self.eof = False
 
-    fn initialize(mut self) raises:
+    fn _make_sure_initialized(mut self) raises:
         """Initialize the zlib stream for decompression."""
-        if self.initialized:
+        if self._initialized:
             return
 
         var inflateInit2 = self.handle.get_function[inflateInit2_type](
@@ -189,7 +189,7 @@ struct Decompress(Movable):
         if init_res != Z_OK:
             log_zlib_result(init_res, compressing=False)
 
-        self.initialized = True
+        self._initialized = True
 
     fn feed_input(mut self, data: Span[Byte]):
         """Feed compressed input data to the decompressor."""
@@ -199,8 +199,7 @@ struct Decompress(Movable):
     fn _decompress_available(mut self) raises -> Bool:
         """Try to decompress some data from input buffer. Returns True if output was produced.
         """
-        if not self.initialized:
-            self.initialize()
+        self._make_sure_initialized()
 
         if self.finished or len(self.input_buffer) == 0:
             return False
@@ -344,5 +343,5 @@ struct Decompress(Movable):
         return result
 
     fn __del__(owned self):
-        if self.initialized:
+        if self._initialized:
             _ = self.inflateEnd(UnsafePointer(to=self.stream))
