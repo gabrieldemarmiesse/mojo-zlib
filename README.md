@@ -29,6 +29,7 @@ Then restart your IDE or just the Mojo extension and it should work.
 
 - [Documentation](https://github.com/gabrieldemarmiesse/mojo-zlib)
 - [Source Code](https://github.com/gabrieldemarmiesse/mojo-zlib)
+- [Prefix.dev package](https://prefix.dev/channels/mojo-community/packages/mojo-zlib)
 - [C zlib documentation](https://zlib.net/manual.html)
 - [Python zlib documentation](https://docs.python.org/3/library/zlib.html)
 

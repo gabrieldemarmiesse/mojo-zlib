@@ -39,6 +39,74 @@ src/
 
 - **Run tests**: `pixi run test` (equivalent to `mojo test -I ./src tests/`)
 - **Format code**: `pixi run format` (equivalent to `mojo format`)
+- **Build and publish**: `pixi run publish` (builds conda package and publishes to mojo-community channel)
+
+## Release Process
+
+The project uses GitHub Actions for automated releases and publishing to conda channels:
+
+### Release Workflow
+
+1. **Create a GitHub Release**: When a new release is published on GitHub, it triggers the automated build and publish workflow.
+
+2. **Multi-platform Builds**: The release workflow (`/.github/workflows/publish.yml`) automatically builds packages for multiple platforms:
+   - `linux-64` (Ubuntu latest)
+   - `osx-arm64` (macOS latest) 
+   - `linux-aarch64` (Ubuntu 24.04 ARM)
+
+3. **Automated Publishing**: Each platform build:
+   - Runs on the respective platform using GitHub Actions runners
+   - Uses the `pixi run publish` command to build and upload packages
+   - Authenticates with prefix.dev using the `PREFIX_API_KEY` secret
+   - Publishes to the `mojo-community` conda channel
+
+### Publishing Process (scripts/publish.py)
+
+The publish script handles:
+- **Recipe Generation**: Automatically generates a `recipe.yaml` from `pixi.toml` configuration
+- **Package Building**: Creates conda packages using `pixi build`
+- **Upload**: Uploads built packages to the mojo-community channel on prefix.dev
+- **Cleanup**: Removes temporary files after successful upload
+
+### Manual Publishing
+
+For manual releases, you can use:
+```bash
+# Build and publish in one step
+pixi run publish
+
+# Or step by step:
+python scripts/publish.py generate-recipe
+python scripts/publish.py build-conda-package  
+python scripts/publish.py publish mojo-community
+```
+
+**Note**: Manual publishing requires the `PREFIX_API_KEY` environment variable to be set for authentication with prefix.dev.
+
+### Image Display on prefix.dev
+
+To ensure images in the README.md appear correctly on prefix.dev, you need to use absolute URLs instead of relative paths. The current image reference in README.md:
+
+```markdown
+![mojo-zlib](docs/mojo-zlib.png)
+```
+
+Should be changed to use the absolute GitHub URL:
+
+```markdown
+![mojo-zlib](https://raw.githubusercontent.com/gabrieldemarmiesse/mojo-zlib/main/docs/mojo-zlib.png)
+```
+
+**Why this is needed:**
+- prefix.dev displays the package description from the README.md file
+- The publish script copies the README.md content to the conda package's `about.description` field
+- prefix.dev cannot resolve relative image paths like `docs/mojo-zlib.png`
+- Using absolute URLs ensures images display correctly on the package page
+
+**Alternative approaches:**
+- Host images on a CDN or image hosting service
+- Use GitHub's raw content URLs (recommended for open source projects)
+- Include images in the conda package itself (not recommended for web display)
 
 ## Key Implementation Details
 
