@@ -11,7 +11,8 @@ repository = "https://github.com/gabrieldemarmiesse/mojo-zlib"
 preview = ["pixi-build"]
 
 [tasks]
-test = "mojo test -I ./src tests/"
+test = "mojo test -I ./src"
+test-all = "python scripts/test.py"
 format = "mojo format"
 
 [dependencies]

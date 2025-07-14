@@ -25,4 +25,4 @@ jobs:
     - name: Run pre-commit checks
       run: pixi x pre-commit run --all-files
     - name: Run tests
-      run: pixi run test
+      run: pixi run test-all
