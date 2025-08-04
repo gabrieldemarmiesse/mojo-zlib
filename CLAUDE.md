@@ -7,7 +7,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 mojo-zlib is a Mojo implementation of Python's zlib module, providing compression and decompression functionality that follows the Python API. The project uses the zlib C library through FFI (Foreign Function Interface) calls.
 
 ## Additional information about Mojo
-Since the Mojo language is pretty new, the Mojo repository can be found in `modular/` with a memory file at @modular/CLAUDE.md . The files in the `modular/` directory should never be updated and are only here as a reference to understand how the Mojo language works. Whenever in doubt, search the code in this directory.
 
 Do not use print statements in the tests. They won't be seen if the tests are passing correctly.
 
@@ -37,7 +36,8 @@ src/
 
 ## Build and Test Commands
 
-- **Run tests**: `pixi run test` (equivalent to `mojo test -I ./src tests/`)
+- **Run tests**: `pixi run test` (equivalent to `mojo test -I ./src`)
+- **Run all tests**: `pixi run test-all` (runs `python scripts/test.py`)
 - **Format code**: `pixi run format` (equivalent to `mojo format`)
 - **Build and publish**: `pixi run publish` (builds conda package and publishes to mojo-community channel)
 
@@ -117,11 +117,19 @@ The project uses FFI to call zlib C library functions. Key patterns:
 - Error handling uses `log_zlib_result()` for consistent error messages
 
 ### Function Signatures
-Functions follow Python's zlib API:
-- `compress(data, level=-1, wbits=15)` - Compress data
-- `decompress(data, wbits=15, bufsize=16384)` - Decompress data
-- `compressobj()` / `decompressobj()` - Streaming compression/decompression
-- `crc32(data, value=0)` / `adler32(data, value=1)` - Checksum functions
+Functions follow Python's zlib API with Mojo-specific types:
+
+**Compression/Decompression Functions:**
+- `compress(data: Span[Byte], /, level: Int32 = -1, wbits: Int32 = MAX_WBITS) raises -> List[Byte]`
+- `decompress(data: Span[Byte], /, wbits: Int32 = MAX_WBITS, bufsize: Int = DEF_BUF_SIZE) raises -> List[Byte]`
+
+**Streaming Compression/Decompression:**
+- `compressobj(level: Int32 = -1, method: Int32 = Z_DEFLATED, wbits: Int32 = MAX_WBITS, memLevel: Int32 = DEF_MEM_LEVEL, strategy: Int32 = Z_DEFAULT_STRATEGY) raises -> Compress`
+- `decompressobj(wbits: Int32 = MAX_WBITS) raises -> Decompress`
+
+**Checksum Functions:**
+- `crc32(data: Span[UInt8], value: UInt32 = 0) -> UInt32`
+- `adler32(data: Span[UInt8], value: UInt32 = 1) -> UInt32`
 
 ### Window Bits Parameter
 The `wbits` parameter controls compression format:
@@ -131,10 +139,10 @@ The `wbits` parameter controls compression format:
 
 ### Python-Compatible Decompression Object Attributes
 
-The `Decompress` struct provides Python-compatible attributes via getter functions:
-- `get_unused_data() -> List[UInt8]` - Returns data that was not consumed by decompression (after end-of-stream)
-- `get_unconsumed_tail() -> List[UInt8]` - Returns input data that has not yet been consumed by decompression  
-- `get_eof() -> Bool` - Returns True if the end-of-stream marker has been reached
+The `Decompress` struct provides Python-compatible attributes as direct struct attributes:
+- `unused_data: List[UInt8]` - Contains any bytes past the end of the compressed data (after end-of-stream)
+- `unconsumed_tail: List[UInt8]` - Contains input data that has not yet been consumed by decompression  
+- `eof: Bool` - True if the end-of-stream marker has been reached
 
 **Usage Example:**
 ```mojo
@@ -142,13 +150,13 @@ var decompressor = zlib.decompressobj()
 var result = decompressor.decompress(compressed_data_with_extra)
 
 # Check if we reached end of stream
-if decompressor.get_eof():
+if decompressor.eof:
     # Any extra data after the compressed stream
-    var unused = decompressor.get_unused_data()
+    var unused = decompressor.unused_data
     print("Found", len(unused), "bytes of unused data")
 
 # Check what input data hasn't been processed yet
-var unconsumed = decompressor.get_unconsumed_tail()
+var unconsumed = decompressor.unconsumed_tail
 ```
 
 ## String to Bytes Conversion

@@ -1,6 +1,6 @@
 # mojo-zlib
 
-![mojo-zlib](docs/mojo-zlib.png)
+![mojo-zlib](https://raw.githubusercontent.com/gabrieldemarmiesse/mojo-zlib/main/docs/mojo-zlib.png)
 
 A Mojo implementation of the Python zlib library, providing compression, decompression, and checksum functionality. This library offers a Python-compatible API for zlib operations in Mojo, enabling seamless migration from Python code.
 
