@@ -10,6 +10,7 @@ from .inflate_constants import InflateState, InflateMode, init_fixed_tables
 from .inftrees import inflate_table, CodeType, Code
 from .inffast import inflate_fast, INFLATE_FAST_MIN_HAVE, INFLATE_FAST_MIN_LEFT
 from .zutil import zcalloc, zcfree
+from ..constants import USE_ZLIB
 
 # Return codes
 alias Z_OK = 0
@@ -71,6 +72,14 @@ fn inflate_init(mut state: InflateState, wbits: Int) -> Int:
     state.wsize = 1 << state.wbits
     state.whave = 0
     state.wnext = 0
+    
+    # Allocate sliding window if needed
+    if state.wsize > 0:
+        state.window = zcalloc(state.wsize, 1)
+        if not state.window:
+            return Z_MEM_ERROR
+    else:
+        state.window = UnsafePointer[UInt8]()
     
     # Initialize bit accumulator
     state.hold = 0
@@ -192,7 +201,6 @@ fn inflate_main(
                     state.mode = InflateMode.TYPE
                 
             elif state.wrap == 2:  # gzip format - simplified header skip
-                print("GZIP: processing gzip header, skipping to deflate data")
                 # Skip gzip header - minimal implementation
                 # Gzip header is at least 10 bytes, more complex parsing needed
                 # For now, return error since proper gzip parsing isn't implemented
@@ -218,11 +226,6 @@ fn inflate_main(
             
         elif state.mode == InflateMode.TYPE:
             
-            # Get block type
-            if state.last != 0:
-                state.mode = InflateMode.CHECK
-                continue
-                
             # Need at least 3 bits for block header
             while bits < 3:
                 if input >= input_end:
@@ -231,6 +234,7 @@ fn inflate_main(
                 input += 1
                 bits += 8
             
+            # Read block header
             state.last = Int(hold & 1)
             hold >>= 1
             bits -= 1
@@ -239,6 +243,11 @@ fn inflate_main(
             hold >>= 2
             bits -= 2
             
+            # @parameter
+            # if not USE_ZLIB:
+            #     print("DEBUG: Block header - last =", state.last, "type =", block_type)
+            
+            # Process block based on type
             if block_type == 0:  # Stored block
                 state.mode = InflateMode.STORED
             elif block_type == 1:  # Fixed Huffman
@@ -322,17 +331,28 @@ fn inflate_main(
         elif state.mode == InflateMode.LEN:
             # Decode literal/length/distance codes
             # Always try fast path first, as it handles length/distance codes properly
-            if (UInt(Int(input_end) - Int(input)) >= INFLATE_FAST_MIN_HAVE and 
-                UInt(Int(output_end) - Int(output)) >= INFLATE_FAST_MIN_LEFT):
+            var have_input = UInt(Int(input_end) - Int(input))
+            var have_output = UInt(Int(output_end) - Int(output))
+            
+            # @parameter
+            # if not USE_ZLIB:
+            #     print("DEBUG LEN: have_input =", have_input, "have_output =", have_output, "bits =", bits)
+            #     print("  fast requirements: input >=", INFLATE_FAST_MIN_HAVE, "output >=", INFLATE_FAST_MIN_LEFT)
+            
+            if (have_input >= INFLATE_FAST_MIN_HAVE and have_output >= INFLATE_FAST_MIN_LEFT):
                 
                 # Update state with current bit accumulator
                 state.hold = hold
                 state.bits = bits
                 
+                # @parameter
+                # if not USE_ZLIB:
+                #     print("DEBUG: Using fast path")
+                
                 # Use fast path
                 var consumed, produced, new_state = inflate_fast(
-                    input, UInt(Int(input_end) - Int(input)),
-                    output, UInt(Int(output_end) - Int(output)),
+                    input, have_input,
+                    output, have_output,
                     state, UInt(Int(output_end) - Int(output_data))
                 )
                 
@@ -343,6 +363,9 @@ fn inflate_main(
                 bits = state.bits
                 
                 if state.mode == InflateMode.TYPE:
+                    # @parameter
+                    # if not USE_ZLIB:
+                    #     print("DEBUG: Fast path returned to TYPE mode, continuing")
                     continue
                 elif state.mode == InflateMode.BAD:
                     ret = Z_DATA_ERROR
@@ -355,11 +378,19 @@ fn inflate_main(
             state.hold = hold
             state.bits = bits
             
+            # @parameter
+            # if not USE_ZLIB:
+            #     print("DEBUG: Using slow path, hold before =", hex(hold), "bits =", bits)
+            
             ret = _decode_slow_path(input, input_end, output, output_end, state, hold, bits)
             
             # Update local variables from state
             hold = state.hold
             bits = state.bits
+            
+            # @parameter
+            # if not USE_ZLIB:
+            #     print("DEBUG: After slow path, hold =", hex(hold), "bits =", bits, "ret =", ret)
             
             if ret != Z_OK:
                 break
@@ -691,57 +722,216 @@ fn _decode_slow_path(
 ) -> Int:
     """Decode symbols one at a time (slow path).
     
-    This is used when we don't have enough input/output for the fast path,
-    or when we need more precise control over the decoding process.
+    This implements the complete slow path state machine matching the C code.
     """
-    # Ensure we have enough bits for symbol lookup
-    if bits < 15:
-        while bits < 15 and input < input_end:
-            hold += UInt64(input[0]) << bits  
+    # Process each symbol according to current state
+    var here = Code()
+    var last = Code()
+    
+    # Main symbol decoding - get length/literal code
+    state.back = 0
+    
+    # Get length/literal symbol
+    while True:
+        var lmask = (1 << state.lenbits) - 1
+        # @parameter
+        # if not USE_ZLIB:
+        #     print("DEBUG slow: hold =", hex(hold), "lmask =", hex(lmask), "index =", Int(hold & lmask))
+        here = state.lencode[Int(hold & lmask)]
+        if UInt(here.bits) <= bits:
+            break
+        # Need more input
+        if input >= input_end:
+            state.hold = hold
+            state.bits = bits
+            return Z_BUF_ERROR
+        hold += UInt64(input[0]) << bits
+        input += 1
+        bits += 8
+    
+    # Handle 2nd level codes
+    if here.op != 0 and (here.op & 0xf0) == 0:
+        last = here
+        while True:
+            here = state.lencode[Int(UInt16(last.val) + UInt16((hold & UInt64((1 << (last.bits + last.op)) - 1)) >> UInt64(last.bits)))]
+            if UInt(last.bits + here.bits) <= bits:
+                break
+            # Need more input
+            if input >= input_end:
+                state.hold = hold
+                state.bits = bits
+                return Z_BUF_ERROR
+            hold += UInt64(input[0]) << bits
             input += 1
             bits += 8
-        if bits < 15:
-            return Z_BUF_ERROR  # Need more input
+        hold >>= UInt64(last.bits)
+        bits -= UInt(last.bits)
+        state.back += Int(last.bits)
     
-    # Look up symbol in length/literal table
-    var lmask = (1 << state.lenbits) - 1
-    var here = state.lencode[Int(hold & lmask)]
+    hold >>= UInt64(here.bits)
+    bits -= UInt(here.bits)
+    state.back += Int(here.bits)
+    state.length = UInt(here.val)
     
-    # Process the code
-    var consume_bits = UInt(here.bits)
-    if consume_bits > bits:
-        state.mode = InflateMode.BAD
-        return Z_DATA_ERROR
-    hold >>= consume_bits
-    bits -= consume_bits
+    # Check what type of symbol we got
+    # @parameter
+    # if not USE_ZLIB:
+    #     if here.val == 256:  # Only debug end-of-block
+    #         print("DEBUG slow: END-OF-BLOCK symbol val =", here.val, "op =", here.op, "bits =", here.bits)
     
-    var op = UInt(here.op)
-    
-    if op == 0:  # Literal
+    if Int(here.op) == 0:  # Literal
         if output >= output_end:
-            return Z_BUF_ERROR  # Need more output space
+            state.hold = hold
+            state.bits = bits
+            return Z_BUF_ERROR
         output[0] = UInt8(here.val)
         output += 1
+        state.hold = hold
+        state.bits = bits
+        return Z_OK
         
-    elif (op & 16) != 0:  # Length code
-        # This would require distance code processing - simplified implementation
-        # For now, just handle end-of-block (symbol 256) which has op with bit 5 set
-        if here.val == 256:  # End of block symbol
-            state.mode = InflateMode.TYPE
+    elif (here.op & 32) != 0:  # End of block
+        state.back = -1
+        # Check if this was the last block
+        if state.last != 0:
+            state.mode = InflateMode.CHECK  # Last block, go to checksum
         else:
-            state.mode = InflateMode.BAD
-            return Z_DATA_ERROR
+            state.mode = InflateMode.TYPE   # More blocks to process
+        state.hold = hold
+        state.bits = bits
+        return Z_OK
         
-    elif (op & 32) != 0:  # End of block
-        state.mode = InflateMode.TYPE
-        
-    else:  # Invalid code
+    elif (here.op & 64) != 0:  # Invalid literal/length code
         state.mode = InflateMode.BAD
         return Z_DATA_ERROR
     
-    # Update state
-    state.hold = hold
-    state.bits = bits
+    # Length code - get extra bits if needed
+    state.extra = UInt(here.op & 15)
+    # @parameter
+    # if not USE_ZLIB:
+    #     print("DEBUG: Length code", here.val, "needs", state.extra, "extra bits")
+    if state.extra != 0:
+        # Need extra bits for length
+        while bits < state.extra:
+            if input >= input_end:
+                state.hold = hold
+                state.bits = bits
+                return Z_BUF_ERROR
+            hold += UInt64(input[0]) << bits
+            input += 1
+            bits += 8
+        state.length += UInt(hold & ((1 << state.extra) - 1))
+        hold >>= state.extra
+        bits -= state.extra
+        state.back += Int(state.extra)
+    
+    state.was = state.length
+    
+    # Now get distance code
+    # @parameter
+    # if not USE_ZLIB:
+    #     print("DEBUG: Getting distance code, hold =", hex(hold), "bits =", bits, "distbits =", state.distbits)
+    while True:
+        var dmask = (1 << state.distbits) - 1
+        # @parameter
+        # if not USE_ZLIB:
+        #     print("DEBUG: Distance lookup: dmask =", hex(dmask), "index =", Int(hold & dmask))
+        here = state.distcode[Int(hold & dmask)]
+        if UInt(here.bits) <= bits:
+            break
+        # Need more input
+        if input >= input_end:
+            state.hold = hold
+            state.bits = bits
+            return Z_BUF_ERROR
+        hold += UInt64(input[0]) << bits
+        input += 1
+        bits += 8
+    
+    # Handle 2nd level distance codes
+    if (here.op & 0xf0) == 0:
+        last = here
+        while True:
+            here = state.distcode[Int(UInt16(last.val) + UInt16((hold & UInt64((1 << (last.bits + last.op)) - 1)) >> UInt64(last.bits)))]
+            if UInt(last.bits + here.bits) <= bits:
+                break
+            # Need more input
+            if input >= input_end:
+                state.hold = hold
+                state.bits = bits
+                return Z_BUF_ERROR
+            hold += UInt64(input[0]) << bits
+            input += 1
+            bits += 8
+        hold >>= UInt64(last.bits)
+        bits -= UInt(last.bits)
+        state.back += Int(last.bits)
+    
+    hold >>= UInt64(here.bits)
+    bits -= UInt(here.bits)
+    state.back += Int(here.bits)
+    
+    if (here.op & 64) != 0:  # Invalid distance code
+        state.mode = InflateMode.BAD
+        return Z_DATA_ERROR
+    
+    state.offset = UInt(here.val)
+    state.extra = UInt(here.op & 15)
+    
+    # Get extra distance bits if needed
+    if state.extra != 0:
+        while bits < state.extra:
+            if input >= input_end:
+                state.hold = hold
+                state.bits = bits
+                return Z_BUF_ERROR
+            hold += UInt64(input[0]) << bits
+            input += 1
+            bits += 8
+        state.offset += UInt(hold & ((1 << state.extra) - 1))
+        hold >>= state.extra
+        bits -= state.extra
+        state.back += Int(state.extra)
+    
+    # Now copy the match
+    if output >= output_end:
+        state.hold = hold
+        state.bits = bits
+        return Z_BUF_ERROR
+        
+    # Copy from recent output (simplified for now - no sliding window)
+    var copy_len = state.length
+    var available_output = UInt(Int(output_end) - Int(output))
+    if copy_len > available_output:
+        copy_len = available_output
+    
+    # For now, assume we can always copy from recent output
+    # Full implementation would need sliding window support
+    var from_ptr = output - state.offset
+    
+    # Handle overlapping copy (common in LZ77 - e.g., "AAAAAAAAAA")
+    if state.offset < copy_len:
+        # Overlapping copy - copy byte by byte
+        for i in range(copy_len):
+            output[i] = from_ptr[i % state.offset]
+    else:
+        # Non-overlapping copy
+        for i in range(copy_len):
+            output[i] = from_ptr[i]
+    
+    output += copy_len
+    state.length -= copy_len
+    
+    if state.length == 0:
+        # Match complete, continue with next symbol
+        state.hold = hold
+        state.bits = bits
+        return Z_OK
+    else:
+        # Partial match copied, need more output space
+        state.hold = hold
+        state.bits = bits
+        return Z_BUF_ERROR
     
     return Z_OK
 

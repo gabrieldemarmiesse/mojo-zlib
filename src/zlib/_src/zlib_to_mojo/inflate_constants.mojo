@@ -7,6 +7,7 @@ needed for inflate decompression.
 
 from memory import UnsafePointer
 from .inftrees import Code
+from ..constants import USE_ZLIB
 
 # Inflate modes between inflate() calls
 struct InflateMode:
@@ -188,45 +189,40 @@ fn init_fixed_tables() -> (InlineArray[Code, LENFIX_SIZE], InlineArray[Code, DIS
     for i in range(280, 288):
         lens[i] = 8
     
-    # Build literal/length table
+    # Use the proper inflate_table function to build the tables correctly
     var lenfix = InlineArray[Code, LENFIX_SIZE](fill=Code())
     var table_ptr = UnsafePointer(to=lenfix[0])
-    var bits = UInt(9)  # 9 bits for root table
-    var result = inflate_table(CodeType.LENS, lens, 288, table_ptr, bits, work)
+    var table_bits = UInt(9)  # Root table size for fixed Huffman
+    var result = inflate_table(CodeType.LENS, lens, 288, table_ptr, table_bits, work)
     
     if result != 0:
-        # Fallback to simple table if generation fails
-        for i in range(288):
-            if i < 144:
-                lenfix[i] = Code(op=0, bits=8, val=UInt16(i))
-            elif i < 256:
-                lenfix[i] = Code(op=0, bits=9, val=UInt16(i))
-            elif i < 280:
-                lenfix[i] = Code(op=0, bits=7, val=UInt16(i))
-            else:
-                lenfix[i] = Code(op=0, bits=8, val=UInt16(i))
+        # Table generation failed, clean up and error
+        lens.free()
+        work.free()
+        # Return empty tables - caller should handle this
+        return (lenfix, InlineArray[Code, DISTFIX_SIZE](fill=Code()))
     
-    # Build distance table - all 32 codes use 5 bits
-    var dlens = UnsafePointer[UInt16].alloc(32)
-    var dwork = UnsafePointer[UInt16].alloc(32)
-    for i in range(32):
-        dlens[i] = 5
-    
+    # Build distance table directly - all 32 codes use 5 bits and map directly
     var distfix = InlineArray[Code, DISTFIX_SIZE](fill=Code())
-    var dtable_ptr = UnsafePointer(to=distfix[0])
-    var dbits = UInt(5)
-    var dresult = inflate_table(CodeType.DISTS, dlens, 32, dtable_ptr, dbits, dwork)
     
-    if dresult != 0:
-        # Fallback for distance table
-        for i in range(32):
-            distfix[i] = Code(op=0, bits=5, val=UInt16(i))
+    # For fixed Huffman, distance codes are simple: 5 bits each, direct mapping
+    # Bit pattern i maps to distance code i for i = 0..31
+    for i in range(32):
+        distfix[i] = Code(op=0, bits=5, val=UInt16(i))
+    
+    # Debug: Print some key table entries (commented out for now)
+    # @parameter  
+    # if not USE_ZLIB:
+    #     print("DEBUG: Huffman table entries:")
+    #     print("  Entry 0:", lenfix[0].__str__())
+    #     print("  Entry 15:", lenfix[15].__str__())
+    #     print("  Entry 256:", lenfix[256].__str__())
+    #     if LENFIX_SIZE > 300:
+    #         print("  Entry 300:", lenfix[300].__str__())
     
     # Clean up
     lens.free()
     work.free()
-    dlens.free()
-    dwork.free()
     
     return (lenfix, distfix)
 

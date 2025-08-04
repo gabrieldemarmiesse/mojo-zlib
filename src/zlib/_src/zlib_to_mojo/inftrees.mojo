@@ -47,6 +47,9 @@ struct Code(Copyable, Movable):
     var op: UInt8      # operation, extra bits, table bits
     var bits: UInt8    # bits in this part of the code  
     var val: UInt16    # offset in table or code value
+    
+    fn __str__(self) -> String:
+        return "Code(op=" + String(self.op) + ", bits=" + String(self.bits) + ", val=" + String(self.val) + ")"
 
     fn __init__(out self, op: UInt8 = 0, bits: UInt8 = 0, val: UInt16 = 0):
         self.op = op

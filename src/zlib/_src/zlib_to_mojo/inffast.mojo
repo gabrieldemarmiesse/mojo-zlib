@@ -8,6 +8,7 @@ when sufficient input/output buffers are available.
 from memory import UnsafePointer
 from .inflate_constants import InflateState, InflateMode
 from .inftrees import Code
+from ..constants import USE_ZLIB
 
 
 fn inflate_fast(
@@ -89,16 +90,33 @@ fn inflate_fast(
         # Get length/literal code
         here = lcode[Int(hold & lmask)]
         
+        # Debug bit accumulator
+        # @parameter
+        # if not USE_ZLIB:
+        #     if iteration_count <= 3:
+        #         print("DEBUG iter", iteration_count, ": hold =", hex(hold), "lmask =", hex(lmask), "index =", Int(hold & lmask))
+        
         # Process length/literal code
         op = UInt(here.op)
         hold >>= UInt(here.bits)
         bits -= UInt(here.bits)
+        
+        # Debug: Check for potential end-of-block
+        # @parameter
+        # if not USE_ZLIB:
+        #     if here.val == 256:  # End-of-block symbol
+        #         print("DEBUG: End-of-block symbol detected, op =", op)
         
         if op == 0:  # Literal
             if output >= end:
                 break  # Not enough output space
             output[0] = UInt8(here.val)
             output += 1
+            # Debug: Track literal count
+            # @parameter
+            # if not USE_ZLIB:
+            #     if iteration_count <= 3:  # Only show first few iterations
+            #         print("DEBUG iter", iteration_count, ": Literal val =", here.val, "op =", here.op, "bits =", here.bits)
             
         elif (op & 16) != 0:  # Length base
             len = UInt(here.val)
@@ -163,28 +181,104 @@ fn inflate_fast(
                         break
                 
                 # Copy match
-                if _copy_match(output, end, dist, len, beg, window, wsize, whave, wnext):
-                    output += len
+                var success, new_output = _copy_match(output, end, dist, len, beg, window, wsize, whave, wnext)
+                if success:
+                    output = new_output
                 else:
                     break  # Not enough output space
                     
             elif op == 0:  # 2nd level distance code
-                # For simplicity, treat as error - full implementation would handle this
-                state.mode = InflateMode.BAD
-                break
+                # Handle 2nd level distance codes
+                var last_code = here
+                if bits < UInt(last_code.bits + last_code.op):
+                    if input >= last:
+                        break  # Not enough input
+                    hold += UInt64(input[0]) << bits
+                    input += 1
+                    bits += 8
+                    if bits < UInt(last_code.bits + last_code.op):
+                        if input >= last:
+                            break  # Not enough input
+                        hold += UInt64(input[0]) << bits
+                        input += 1
+                        bits += 8
+                
+                here = dcode[Int(UInt16(last_code.val) + UInt16((hold & UInt64((1 << (last_code.bits + last_code.op)) - 1)) >> UInt64(last_code.bits)))]
+                hold >>= UInt64(last_code.bits)
+                bits -= UInt(last_code.bits)
+                op = UInt(here.op)
+                
+                if (op & 16) != 0:  # Distance base
+                    dist = UInt(here.val)
+                    op &= 15  # Number of extra bits
+                    if bits < op:
+                        if input >= last:
+                            break  # Not enough input
+                        hold += UInt64(input[0]) << bits
+                        input += 1
+                        bits += 8
+                        if bits < op:
+                            if input >= last:
+                                break  # Not enough input
+                            hold += UInt64(input[0]) << bits
+                            input += 1
+                            bits += 8
+                    
+                    dist += UInt(hold & ((1 << op) - 1))
+                    hold >>= op
+                    bits -= op
+                    
+                    # Check for invalid distance in strict mode
+                    if state.sane != 0:
+                        var max_dist = UInt(Int(output) - Int(beg))  # Max distance in output
+                        if dist > max_dist + whave:
+                            state.mode = InflateMode.BAD
+                            break
+                    
+                    # Copy match
+                    var success2, new_output2 = _copy_match(output, end, dist, len, beg, window, wsize, whave, wnext)
+                    if success2:
+                        output = new_output2
+                    else:
+                        break  # Not enough output space
+                else:
+                    state.mode = InflateMode.BAD
+                    break
                 
             else:  # Invalid distance code
                 state.mode = InflateMode.BAD
                 break
                 
         elif (op & 32) != 0:  # End-of-block
-            state.mode = InflateMode.TYPE
+            # Check if this was the last block
+            if state.last != 0:
+                state.mode = InflateMode.CHECK  # Last block, go to checksum
+            else:
+                state.mode = InflateMode.TYPE   # More blocks to process
             break
             
         elif (op & 64) == 0:  # 2nd level length code
-            # For simplicity, treat as error - full implementation would handle this
-            state.mode = InflateMode.BAD
-            break
+            # Handle 2nd level length codes 
+            var last_code = here
+            if bits < UInt(last_code.bits + last_code.op):
+                if input >= last:
+                    break  # Not enough input
+                hold += UInt64(input[0]) << bits
+                input += 1
+                bits += 8
+                if bits < UInt(last_code.bits + last_code.op):
+                    if input >= last:
+                        break  # Not enough input
+                    hold += UInt64(input[0]) << bits
+                    input += 1
+                    bits += 8
+            
+            here = lcode[Int(UInt16(last_code.val) + UInt16((hold & UInt64((1 << (last_code.bits + last_code.op)) - 1)) >> UInt64(last_code.bits)))]
+            hold >>= UInt64(last_code.bits)
+            bits -= UInt(last_code.bits)
+            
+            # Process the 2nd level code (continue from top of loop)
+            continue
             
         else:  # Invalid length code
             state.mode = InflateMode.BAD
@@ -197,6 +291,10 @@ fn inflate_fast(
     # Calculate consumed input and produced output
     var consumed_input = UInt(Int(input) - Int(strm_next_in))
     var produced_output = UInt(Int(output) - Int(strm_next_out))
+    
+    # @parameter
+    # if not USE_ZLIB:
+    #     print("DEBUG inffast: consumed =", consumed_input, "produced =", produced_output, "mode =", UInt(state.mode))
     
     return (consumed_input, produced_output, state)
 
@@ -211,7 +309,7 @@ fn _copy_match(
     wsize: UInt,
     whave: UInt,
     wnext: UInt
-) -> Bool:
+) -> (Bool, UnsafePointer[UInt8]):
     """Copy a match from either the sliding window or recent output.
     
     Args:
@@ -226,7 +324,7 @@ fn _copy_match(
         wnext: Window write index.
         
     Returns:
-        True if copy was successful, False if not enough output space.
+        Tuple of (success, new_output_position). True if copy was successful, False if not enough output space.
     """
     var from_ptr = UnsafePointer[UInt8]()
     var op = UInt(Int(output) - Int(beg))  # Max distance in output
@@ -235,14 +333,14 @@ fn _copy_match(
         op = dist - op  # Distance back in window
         if op > whave:
             # Invalid distance - would need special handling in full implementation
-            return False
+            return (False, output)
             
         from_ptr = window
         if wnext == 0:  # Very common case
             from_ptr += wsize - op
             if op < len:  # Some from window
                 if output + op > end:
-                    return False  # Not enough output space
+                    return (False, output)  # Not enough output space
                 len -= op
                 while op > 0:
                     output[0] = from_ptr[0]
@@ -255,7 +353,7 @@ fn _copy_match(
             op -= wnext
             if op < len:  # Some from end of window
                 if output + op > end:
-                    return False  # Not enough output space
+                    return (False, output)  # Not enough output space
                 len -= op
                 while op > 0:
                     output[0] = from_ptr[0]
@@ -266,7 +364,7 @@ fn _copy_match(
                 if wnext < len:  # Some from start of window
                     op = wnext
                     if output + op > end:
-                        return False  # Not enough output space
+                        return (False, output)  # Not enough output space
                     len -= op
                     while op > 0:
                         output[0] = from_ptr[0]
@@ -278,7 +376,7 @@ fn _copy_match(
             from_ptr += wnext - op
             if op < len:  # Some from window
                 if output + op > end:
-                    return False  # Not enough output space
+                    return (False, output)  # Not enough output space
                 len -= op
                 while op > 0:
                     output[0] = from_ptr[0]
@@ -289,7 +387,7 @@ fn _copy_match(
         
         # Copy remaining bytes with optimization for runs of 3
         if output + len > end:
-            return False  # Not enough output space
+            return (False, output)  # Not enough output space
         while len > 2:
             output[0] = from_ptr[0]
             output[1] = from_ptr[1]
@@ -309,7 +407,7 @@ fn _copy_match(
         # Copy direct from output
         from_ptr = output - dist
         if output + len > end:
-            return False  # Not enough output space
+            return (False, output)  # Not enough output space
         
         # Fast copy for small distances
         if dist == 1:
@@ -344,7 +442,7 @@ fn _copy_match(
                     output += 1
                     from_ptr += 1
     
-    return True
+    return (True, output)
 
 
 # Constants for fast path requirements

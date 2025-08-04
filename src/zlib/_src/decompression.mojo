@@ -103,6 +103,13 @@ fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
         state
     )
     
+    @parameter
+    if not USE_ZLIB:
+        # Debug print for native implementation
+        # if produced > 0 or consumed > 0:
+        #     print("DEBUG: consumed =", consumed, "produced =", produced, "result =", result)
+        pass
+    
     # Update ZStream fields
     strm[0].next_in += consumed
     strm[0].avail_in -= UInt32(consumed)
