@@ -1,0 +1,58 @@
+# Planning
+
+I'd like to provide a compilation option so that the user can choose whether to
+use the zlib library or the native mojo implementation of zlib (not there yet).
+See the `get_zlib_dl_handle` function for context.
+
+In mojo it's possible to do compile-time if-else based on a compilation option with 
+-D <KEY=VALUE>
+Defines a named value that can be used from within the Mojo 
+source file being executed. For example, -D foo=42 defines a 
+name foo that, when queried with the sys.param_env module 
+from within the Mojo program, would yield the compile-time value 42.
+```mojo
+import sys
+alias USE_ZLIB = sys.get_env_bool["USE_ZLIB", True]
+
+@parameter
+if USE_ZLIB:
+    # call get_zlib_dl_handle
+else:
+    # use native mojo implementation
+    ...
+```
+
+With this, the user can compile with `-D USE_ZLIB=False` to use the native implementation instead of the zlib library.
+
+# Rewriting zlib in Mojo
+
+a big part of the work is to rewrite the zlib library in Mojo. This will allow us to use it without needing to link against the C library, 
+which is a requirement for the native Mojo implementation.
+
+To do this, we'll do the following plan:
+1) Read the zlib source code present in `zlib/`
+2) Identify the files that are needed to implement the zlib functionality used in this project
+3) Create a directory called `src/zlib/_src/zlib_to_mojo/`.
+4) For each file identified in step 2, create a corresponding Mojo file in `src/zlib/_src/zlib_to_mojo/`.
+5) For each function you write in Mojo, write a unit test for it in `tests/zlib_to_mojo/`.
+6) If at some point you have a hard time because a test doesn't pass, use print statements to debug the issue.
+7) After writing each function, run the unit test with `pixi run test tests/zlib_to_mojo/test_some_file.mojo`.
+8) Starts with all the functions needed for decompression. When they're all implemented, try to run all the unit tests in the codebase with `pixi run test -D USE_ZLIB=False ./tests`. and with `pixi run test -D USE_ZLIB=True ./tests`
+9) Once all the decompression functions are implemented, move on to the compression functions. When they're all implemented, try to run all the unit tests in the codebase with `pixi run test -D USE_ZLIB=False ./tests`. Same with USE_ZLIB=True
+10) The public api of the library should not change
+11) Note that ZStream is already defined in constants.mojo, so you don't need to redefine it. Add USE_ZLIB to constants.mojo.
+12) If you come across some really long table of constants and find the code to generate them, use the fact that in Mojo, you can run many things at compile-time. 
+Thus creating those tables with mojo code is possible. In the unit test you can then check a few values to ensure that the table is correct.
+
+What I want you to do first, is not to start implementing the zlib functions, but to
+write a huge TODO list with all the things you need to do to complete this project in order.
+So no writing any code yet, just a list of things to do, just reading and analysing.
+The TODO list must be very detailed by listing which functions must be written and what kind of unit test must be
+  written for each function, and which unit test to run.
+
+You can skip the Performance Optimizations part.
+
+When executing the TODO list, feel free to re-read the C source code of functions if you have a doubt.
+The source code for the mojo stdlib is in modular/mojo, don't hesistate to check the signatures of mojo functions in the stdlib if you need to. Always try to find out if a function 
+already exists in the stdlib before writing it yourself.
+
