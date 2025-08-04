@@ -1,4 +1,8 @@
 from sys import ffi
+from sys.param_env import env_get_bool
+
+# Compilation flag to choose between zlib FFI or native Mojo implementation
+alias USE_ZLIB = env_get_bool["USE_ZLIB", True]()
 
 alias Bytef = Scalar[DType.uint8]
 alias uLong = UInt64
