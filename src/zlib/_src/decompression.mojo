@@ -44,20 +44,15 @@ fn _dummy_inflateInit2(
     stream_size: Int32
 ) -> ffi.c_int:
     """Initialize native Mojo decompression state."""
-    print("NATIVE inflateInit2: windowBits =", windowBits)
-    
     # Validate parameters
     if not strm:
-        print("NATIVE inflateInit2: ERROR - null stream")
         return Z_STREAM_ERROR
     
     # Create and initialize InflateState
     var state = InflateState()
     var init_result = inflate_init(state, Int(windowBits))
-    print("NATIVE inflateInit2: inflate_init result =", init_result)
     
     if init_result != Int(Z_OK):
-        print("NATIVE inflateInit2: ERROR - init failed with", init_result)
         return Int32(init_result)
     
     # Store the InflateState in the ZStream's opaque field
@@ -71,50 +66,33 @@ fn _dummy_inflateInit2(
     strm[0].adler = 1  # Initial Adler32 value
     strm[0].reserved = 0
     
-    print("NATIVE inflateInit2: SUCCESS")
     return Z_OK
 
 fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
     """Perform native Mojo decompression."""
-    print("NATIVE inflate: called with flush =", flush)
-    print("NATIVE inflate: avail_in =", strm[0].avail_in, "avail_out =", strm[0].avail_out)
-    
     # Validate stream
     if not strm or not strm[0].opaque:
-        print("NATIVE inflate: ERROR - invalid stream or no state")
         return Z_STREAM_ERROR
     
     # Validate input
     if not strm[0].next_in and strm[0].avail_in != 0:
-        print("NATIVE inflate: ERROR - invalid input")
         return Z_STREAM_ERROR
     
     # Validate output  
     if not strm[0].next_out and strm[0].avail_out != 0:
-        print("NATIVE inflate: ERROR - invalid output")
         return Z_STREAM_ERROR
     
     # Retrieve the InflateState from the opaque field
     var state_ptr = strm[0].opaque.bitcast[InflateState]()
     var state = state_ptr[0]
-    print("NATIVE inflate: state mode =", state.mode)
     
     # If no input or output available, return appropriately
     if strm[0].avail_in == 0 and strm[0].avail_out == 0:
-        print("NATIVE inflate: no input/output available")
         return Z_BUF_ERROR
     
     # Save original values for progress tracking
     var original_avail_in = strm[0].avail_in
     var original_avail_out = strm[0].avail_out
-    
-    # Show first few input bytes for debugging
-    if strm[0].avail_in > 0:
-        print("NATIVE inflate: first input bytes:", 
-              strm[0].next_in[0] if strm[0].avail_in > 0 else 0,
-              strm[0].next_in[1] if strm[0].avail_in > 1 else 0,
-              strm[0].next_in[2] if strm[0].avail_in > 2 else 0,
-              strm[0].next_in[3] if strm[0].avail_in > 3 else 0)
     
     # Call native inflate_main
     var consumed, produced, result, new_state = inflate_main(
@@ -124,9 +102,6 @@ fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
         UInt(strm[0].avail_out),
         state
     )
-    
-    print("NATIVE inflate: consumed =", consumed, "produced =", produced, "result =", result)
-    print("NATIVE inflate: new_state mode =", new_state.mode)
     
     # Update ZStream fields
     strm[0].next_in += consumed
@@ -150,21 +125,16 @@ fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
     
     # Handle specific result codes
     if result == 1:  # Z_STREAM_END
-        print("NATIVE inflate: returning Z_STREAM_END")
         return Z_STREAM_END
     elif result == Int(Z_OK):
         # Check if we made progress
         if strm[0].avail_in == original_avail_in and strm[0].avail_out == original_avail_out:
-            print("NATIVE inflate: no progress, returning Z_BUF_ERROR")
             return Z_BUF_ERROR
-        print("NATIVE inflate: returning Z_OK")
         return Z_OK
     elif result == Int(Z_BUF_ERROR):
-        print("NATIVE inflate: returning Z_BUF_ERROR")
         return Z_BUF_ERROR
     else:
         # Handle other error codes
-        print("NATIVE inflate: returning error", result)
         return Int32(result)
 
 fn _dummy_inflateEnd(strm: z_stream_ptr) -> ffi.c_int:
