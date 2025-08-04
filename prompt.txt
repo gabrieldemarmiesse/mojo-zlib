@@ -60,7 +60,7 @@ The source code for the mojo stdlib is in modular/mojo, don't hesistate to check
 already exists in the stdlib before writing it yourself.
 When declaring an argument of type UnsafePointer, 
 always make it generic over the origin 
-and address space with `UnsafePointer[T, *_, **_]`.
+with this syntax `fn inflate_table[O:Origin](mut table: UnsafePointer[T, mut = O.mut,origin=O]) -> Int:`.
 When fixing compiler errors, always fix the first error given and then re-run the tests.
 This is because the errors after the first one might be caused by the first error, 
 so fixing the first one might fix all the others.
