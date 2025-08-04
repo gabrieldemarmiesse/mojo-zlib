@@ -197,4 +197,4 @@ cython_debug/
 .claude/settings.local.json
 .pixi
 modular/
-zlib/
+c_zlib/
