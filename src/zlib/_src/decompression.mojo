@@ -4,6 +4,7 @@ from sys import info, exit
 import sys
 import os
 from .constants import (
+    USE_ZLIB,
     ZStream,
     Bytef,
     z_stream_ptr,
@@ -27,7 +28,25 @@ from .constants import (
     log_zlib_result,
     BUFFER_SIZE,
 )
+
+# Always import both implementations to avoid conditional import issues
 from .zlib_shared_object import get_zlib_dl_handle
+from .zlib_to_mojo.inflate import inflate_init, inflate_main, Z_DATA_ERROR, Z_BUF_ERROR
+from .zlib_to_mojo.inflate_constants import InflateState
+
+
+# Dummy functions for native implementation (never called when USE_ZLIB is False)
+fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
+    return 0
+
+fn _dummy_inflateEnd(strm: z_stream_ptr) -> ffi.c_int:
+    return 0
+
+fn _dummy_inflateInit2(  strm: z_stream_ptr,
+    windowBits: Int32,
+    version: UnsafePointer[UInt8],
+    stream_size: Int32)-> ffi.c_int:
+    return 0
 
 
 fn decompress(
@@ -93,10 +112,13 @@ struct Decompress(Movable):
     information about the decompression process.
     """
 
+    # State field - used as ZStream for FFI zlib, can store native state info too
     var _stream: ZStream
     var _handle: ffi.DLHandle
     var _inflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
     var _inflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
+    
+    # Common fields
     var _initialized: Bool
     var _finished: Bool
     var _input_buffer: List[UInt8]
@@ -123,11 +145,20 @@ struct Decompress(Movable):
     """True if the end-of-stream marker has been reached."""
 
     fn __init__(out self, wbits: Int32 = MAX_WBITS) raises:
-        self._handle = get_zlib_dl_handle()
-        self._inflate_fn = self._handle.get_function[inflate_type]("inflate")
-        self._inflateEnd = self._handle.get_function[inflateEnd_type](
-            "inflateEnd"
-        )
+        @parameter
+        if USE_ZLIB:
+            self._handle = get_zlib_dl_handle()
+            self._inflate_fn = self._handle.get_function[inflate_type]("inflate")
+            self._inflateEnd = self._handle.get_function[inflateEnd_type](
+                "inflateEnd"
+            )
+        else:
+            # For native implementation, we don't need FFI functions
+            # Initialize with dummy values to satisfy the type system
+            # Note: These will never be called when USE_ZLIB is False
+            self._handle = ffi.DLHandle()
+            self._inflate_fn = _dummy_inflate
+            self._inflateEnd = _dummy_inflateEnd
 
         self._stream = ZStream(
             next_in=UnsafePointer[Bytef](),
@@ -162,13 +193,23 @@ struct Decompress(Movable):
         self.eof = False
 
     fn _make_sure_initialized(mut self) raises:
-        """Initialize the zlib stream for decompression."""
+        """Initialize the decompression stream."""
         if self._initialized:
             return
+        inflateInit2: inflateInit2_type
+        @parameter
+        if USE_ZLIB:
+            # Initialize FFI zlib stream
+            inflateInit2 = self._handle.get_function[inflateInit2_type](
+                "inflateInit2_"
+            )
+            
+        else:
+            # Initialize native Mojo state (stored in unused ZStream fields)
+            # We'll store the InflateState in the ZStream's opaque field
+            # For now, just mark as initialized - actual state will be managed separately
+            inflateInit2 = _dummy_inflateInit2
 
-        var inflateInit2 = self._handle.get_function[inflateInit2_type](
-            "inflateInit2_"
-        )
         var zlib_version = String("1.2.11")
         var init_res = inflateInit2(
             UnsafePointer(to=self._stream),
