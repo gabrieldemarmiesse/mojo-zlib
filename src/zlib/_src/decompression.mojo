@@ -31,22 +31,73 @@ from .constants import (
 
 # Always import both implementations to avoid conditional import issues
 from .zlib_shared_object import get_zlib_dl_handle
-from .zlib_to_mojo.inflate import inflate_init, inflate_main, Z_DATA_ERROR, Z_BUF_ERROR
+from .zlib_to_mojo.inflate import inflate_init, inflate_main, Z_DATA_ERROR, Z_BUF_ERROR, Z_STREAM_ERROR
 from .zlib_to_mojo.inflate_constants import InflateState
 
 
-# Dummy functions for native implementation (never called when USE_ZLIB is False)
-fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
-    return 0
-
-fn _dummy_inflateEnd(strm: z_stream_ptr) -> ffi.c_int:
-    return 0
-
-fn _dummy_inflateInit2(  strm: z_stream_ptr,
+# Native Mojo implementation functions (used when USE_ZLIB is False)
+fn _dummy_inflateInit2(
+    strm: z_stream_ptr,
     windowBits: Int32,
     version: UnsafePointer[UInt8],
-    stream_size: Int32)-> ffi.c_int:
-    return 0
+    stream_size: Int32
+) -> ffi.c_int:
+    """Initialize native Mojo decompression state."""
+    # Create and initialize InflateState
+    var state = InflateState()
+    var init_result = inflate_init(state, Int(windowBits))
+    
+    if init_result != Int(Z_OK):
+        return Z_STREAM_ERROR
+    
+    # Store the InflateState in the ZStream's opaque field
+    # We allocate memory to store the state and put the pointer in opaque
+    var state_ptr = UnsafePointer[InflateState].alloc(1)
+    state_ptr[0] = state^
+    strm[0].opaque = state_ptr.bitcast[UInt8]()
+    
+    return Z_OK
+
+fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
+    """Perform native Mojo decompression."""
+    if not strm[0].opaque:
+        return Z_STREAM_ERROR
+    
+    # Retrieve the InflateState from the opaque field
+    var state_ptr = strm[0].opaque.bitcast[InflateState]()
+    var state = state_ptr[0]
+    
+    # Call native inflate_main
+    var consumed, produced, result, new_state = inflate_main(
+        strm[0].next_in,
+        UInt(strm[0].avail_in),
+        strm[0].next_out,
+        UInt(strm[0].avail_out),
+        state
+    )
+    
+    # Update ZStream fields
+    strm[0].next_in += consumed
+    strm[0].avail_in = UInt32(UInt(strm[0].avail_in) - consumed)
+    strm[0].next_out += produced
+    strm[0].avail_out = UInt32(UInt(strm[0].avail_out) - produced)
+    strm[0].total_in += UInt(consumed)
+    strm[0].total_out += UInt(produced)
+    
+    # Update stored state
+    state_ptr[0] = new_state
+    
+    return Int32(result)
+
+fn _dummy_inflateEnd(strm: z_stream_ptr) -> ffi.c_int:
+    """Cleanup native Mojo decompression state."""
+    if strm[0].opaque:
+        # Free the allocated InflateState
+        var state_ptr = strm[0].opaque.bitcast[InflateState]()
+        state_ptr.free()
+        strm[0].opaque = UnsafePointer[UInt8]()
+    
+    return Z_OK
 
 
 fn decompress(
