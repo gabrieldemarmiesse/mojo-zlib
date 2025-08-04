@@ -4,6 +4,7 @@ from sys import info, exit
 import sys
 import os
 from .constants import (
+    USE_ZLIB,
     ZStream,
     Bytef,
     z_stream_ptr,
@@ -27,7 +28,143 @@ from .constants import (
     log_zlib_result,
     BUFFER_SIZE,
 )
+
+# Always import both implementations to avoid conditional import issues
 from .zlib_shared_object import get_zlib_dl_handle
+from .zlib_to_mojo.inflate import inflate_init, inflate_main, Z_DATA_ERROR, Z_BUF_ERROR, Z_STREAM_ERROR
+from .zlib_to_mojo.inflate_constants import InflateState
+from .checksums import adler32
+
+
+# Native Mojo implementation functions (used when USE_ZLIB is False)
+fn _dummy_inflateInit2(
+    strm: z_stream_ptr,
+    windowBits: Int32,
+    version: UnsafePointer[UInt8],
+    stream_size: Int32
+) -> ffi.c_int:
+    """Initialize native Mojo decompression state."""
+    # Validate parameters
+    if not strm:
+        return Z_STREAM_ERROR
+    
+    # Create and initialize InflateState
+    var state = InflateState()
+    var init_result = inflate_init(state, Int(windowBits))
+    
+    if init_result != Int(Z_OK):
+        return Int32(init_result)
+    
+    # Store the InflateState in the ZStream's opaque field
+    var state_ptr = UnsafePointer[InflateState].alloc(1)
+    state_ptr[0] = state^
+    strm[0].opaque = state_ptr.bitcast[UInt8]()
+    
+    # Initialize ZStream fields
+    strm[0].msg = UnsafePointer[UInt8]()
+    strm[0].data_type = 0
+    strm[0].adler = 1  # Initial Adler32 value
+    strm[0].reserved = 0
+    
+    return Z_OK
+
+fn _dummy_inflate(strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int:
+    """Perform native Mojo decompression."""
+    # Validate stream
+    if not strm or not strm[0].opaque:
+        return Z_STREAM_ERROR
+    
+    # Validate input
+    if not strm[0].next_in and strm[0].avail_in != 0:
+        return Z_STREAM_ERROR
+    
+    # Validate output  
+    if not strm[0].next_out and strm[0].avail_out != 0:
+        return Z_STREAM_ERROR
+    
+    # Retrieve the InflateState from the opaque field
+    var state_ptr = strm[0].opaque.bitcast[InflateState]()
+    var state = state_ptr[0]
+    
+    # If no input or output available, return appropriately
+    if strm[0].avail_in == 0 and strm[0].avail_out == 0:
+        return Z_BUF_ERROR
+    
+    # Save original values for progress tracking
+    var original_avail_in = strm[0].avail_in
+    var original_avail_out = strm[0].avail_out
+    
+    # Call native inflate_main
+    var consumed, produced, result, new_state = inflate_main(
+        strm[0].next_in,
+        UInt(strm[0].avail_in),
+        strm[0].next_out,
+        UInt(strm[0].avail_out),
+        state
+    )
+    
+    @parameter
+    if not USE_ZLIB:
+        # Debug print for native implementation
+        # if produced > 0 or consumed > 0:
+        #     print("DEBUG: consumed =", consumed, "produced =", produced, "result =", result)
+        pass
+    
+    # Update ZStream fields
+    strm[0].next_in += consumed
+    strm[0].avail_in -= UInt32(consumed)
+    strm[0].next_out += produced  
+    strm[0].avail_out -= UInt32(produced)
+    strm[0].total_in += UInt(consumed)
+    strm[0].total_out += UInt(produced)
+    
+    # Update checksum if needed
+    if produced > 0:
+        # Calculate Adler32 checksum of produced output
+        var output_data = List[UInt8]()
+        var temp_ptr = strm[0].next_out - produced
+        for i in range(produced):
+            output_data.append(temp_ptr[i])
+        strm[0].adler = UInt(adler32(output_data, UInt32(strm[0].adler)))
+    
+    # Update stored state
+    state_ptr[0] = new_state
+    
+    # Handle specific result codes
+    if result == 1:  # Z_STREAM_END
+        return Z_STREAM_END
+    elif result == Int(Z_OK):
+        # Check if we made progress
+        if strm[0].avail_in == original_avail_in and strm[0].avail_out == original_avail_out:
+            return Z_BUF_ERROR
+        return Z_OK
+    elif result == Int(Z_BUF_ERROR):
+        return Z_BUF_ERROR
+    else:
+        # Handle other error codes
+        return Int32(result)
+
+fn _dummy_inflateEnd(strm: z_stream_ptr) -> ffi.c_int:
+    """Cleanup native Mojo decompression state."""
+    # Validate stream
+    if not strm:
+        return Z_STREAM_ERROR
+    
+    # Clean up allocated state if it exists
+    if strm[0].opaque:
+        # Free the allocated InflateState
+        var state_ptr = strm[0].opaque.bitcast[InflateState]()
+        state_ptr.free()
+        strm[0].opaque = UnsafePointer[UInt8]()
+    
+    # Clear stream fields to prevent further use
+    strm[0].next_in = UnsafePointer[Bytef]()
+    strm[0].avail_in = 0
+    strm[0].next_out = UnsafePointer[Bytef]()
+    strm[0].avail_out = 0
+    strm[0].msg = UnsafePointer[UInt8]()
+    
+    return Z_OK
 
 
 fn decompress(
@@ -93,10 +230,13 @@ struct Decompress(Movable):
     information about the decompression process.
     """
 
+    # State field - used as ZStream for FFI zlib, can store native state info too
     var _stream: ZStream
     var _handle: ffi.DLHandle
     var _inflate_fn: fn (strm: z_stream_ptr, flush: ffi.c_int) -> ffi.c_int
     var _inflateEnd: fn (strm: z_stream_ptr) -> ffi.c_int
+    
+    # Common fields
     var _initialized: Bool
     var _finished: Bool
     var _input_buffer: List[UInt8]
@@ -123,11 +263,20 @@ struct Decompress(Movable):
     """True if the end-of-stream marker has been reached."""
 
     fn __init__(out self, wbits: Int32 = MAX_WBITS) raises:
-        self._handle = get_zlib_dl_handle()
-        self._inflate_fn = self._handle.get_function[inflate_type]("inflate")
-        self._inflateEnd = self._handle.get_function[inflateEnd_type](
-            "inflateEnd"
-        )
+        @parameter
+        if USE_ZLIB:
+            self._handle = get_zlib_dl_handle()
+            self._inflate_fn = self._handle.get_function[inflate_type]("inflate")
+            self._inflateEnd = self._handle.get_function[inflateEnd_type](
+                "inflateEnd"
+            )
+        else:
+            # For native implementation, we don't need FFI functions
+            # Initialize with dummy values to satisfy the type system
+            # Note: These will never be called when USE_ZLIB is False
+            self._handle = ffi.DLHandle()
+            self._inflate_fn = _dummy_inflate
+            self._inflateEnd = _dummy_inflateEnd
 
         self._stream = ZStream(
             next_in=UnsafePointer[Bytef](),
@@ -162,13 +311,23 @@ struct Decompress(Movable):
         self.eof = False
 
     fn _make_sure_initialized(mut self) raises:
-        """Initialize the zlib stream for decompression."""
+        """Initialize the decompression stream."""
         if self._initialized:
             return
+        inflateInit2: inflateInit2_type
+        @parameter
+        if USE_ZLIB:
+            # Initialize FFI zlib stream
+            inflateInit2 = self._handle.get_function[inflateInit2_type](
+                "inflateInit2_"
+            )
+            
+        else:
+            # Initialize native Mojo state (stored in unused ZStream fields)
+            # We'll store the InflateState in the ZStream's opaque field
+            # For now, just mark as initialized - actual state will be managed separately
+            inflateInit2 = _dummy_inflateInit2
 
-        var inflateInit2 = self._handle.get_function[inflateInit2_type](
-            "inflateInit2_"
-        )
         var zlib_version = String("1.2.11")
         var init_res = inflateInit2(
             UnsafePointer(to=self._stream),

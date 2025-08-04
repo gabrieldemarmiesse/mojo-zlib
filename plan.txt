@@ -1,0 +1,149 @@
+
+  Analysis Summary
+
+  The current project uses zlib through FFI calls for these core functions:
+  - Decompression: inflateInit2_, inflate, inflateEnd
+  - Compression: deflateInit2_, deflate, deflateEnd
+  - Checksums: adler32, crc32 (already implemented in pure Mojo)
+
+  Detailed Implementation Plan
+
+  Phase 1: Project Structure and Configuration
+
+  1. Add USE_ZLIB compilation flag to constants.mojo
+    - Import sys.param_env
+    - Add alias USE_ZLIB = sys.get_env_bool["USE_ZLIB", True]
+    - Add conditional compilation logic
+  2. Create native implementation directory structure
+    - Create src/zlib/_src/zlib_to_mojo/ directory
+    - Create corresponding test directory tests/zlib_to_mojo/
+  3. Update zlib_shared_object.mojo for conditional compilation
+    - Add @parameter if USE_ZLIB: conditional around FFI calls
+    - Create stub functions for native implementation
+
+  Phase 2: Core Data Structures and Utilities (Base Implementation)
+
+  4. Implement zutil.mojo - Core utilities and data structures
+    - ZStream state management structures
+    - Memory management utilities
+    - Constants and enums for internal state
+    - Unit tests: test_zutil.mojo - Test state management, memory utilities
+  5. Implement trees.mojo - Huffman tree generation and management
+    - Static Huffman trees for literal/length and distance codes
+    - Dynamic Huffman tree construction
+    - Tree descriptor structures (ct_data, tree_desc)
+    - Length encoding/decoding tables
+    - Unit tests: test_trees.mojo - Test Huffman tree generation, static trees, dynamic trees
+  6. Implement inftrees.mojo - Huffman tree building for decompression
+    - inflate_table() function for building decode tables
+    - Code type enums (CODES, LENS, DISTS)
+    - Huffman decoding table structures
+    - Unit tests: test_inftrees.mojo - Test table building, different code types
+
+  Phase 3: Decompression Implementation (Priority: High)
+
+  7. Implement inflate_constants.mojo - Decompression state and constants
+    - Inflate state enum (HEAD, FLAGS, TYPE, STORED, TABLE, etc.)
+    - Inflate mode constants
+    - Fixed decode tables
+    - Unit tests: test_inflate_constants.mojo - Test state transitions, constants
+  8. Implement inffast.mojo - Fast decompression for distance/length copying
+    - Fast path for literal/length/distance decoding when sufficient input/output
+    - Optimized copying for back-references
+    - Unit tests: test_inffast.mojo - Test fast decompression, boundary conditions
+  9. Implement inflate.mojo - Main decompression logic
+    - inflateInit2_() - Initialize decompression state
+    - inflate() - Main decompression function with state machine
+    - inflateEnd() - Cleanup decompression state
+    - Support for zlib, gzip, and raw deflate formats
+    - Unit tests: test_inflate.mojo - Test all decompression functions, formats, error conditions
+  10. Update decompression.mojo for conditional compilation
+    - Add @parameter if USE_ZLIB: blocks around FFI calls
+    - Add else: blocks that call native Mojo functions
+    - Unit tests: Run existing decompression tests with -D USE_ZLIB=False
+
+  Phase 4: Compression Implementation (Priority: Medium)
+
+  11. Implement deflate_constants.mojo - Compression state and constants
+    - Deflate state enum (INIT_STATE, BUSY_STATE, FINISH_STATE, etc.)
+    - Compression level constants and strategies
+    - Hash table and window size constants
+    - Unit tests: test_deflate_constants.mojo - Test state management, constants
+  12. Implement deflate_utils.mojo - Compression utilities
+    - Hash chain management
+    - Longest match finding
+    - Block type analysis
+    - Unit tests: test_deflate_utils.mojo - Test hashing, match finding
+  13. Implement deflate.mojo - Main compression logic
+    - deflateInit2_() - Initialize compression state
+    - deflate() - Main compression function with block processing
+    - deflateEnd() - Cleanup compression state
+    - Support for different compression levels and strategies
+    - Unit tests: test_deflate.mojo - Test all compression functions, levels, strategies
+  14. Update compression.mojo for conditional compilation
+    - Add @parameter if USE_ZLIB: blocks around FFI calls
+    - Add else: blocks that call native Mojo functions
+    - Unit tests: Run existing compression tests with -D USE_ZLIB=False
+
+  Phase 5: Integration and Testing
+
+  15. Integration testing with native implementation
+    - Test command: pixi run test -D USE_ZLIB=False tests/
+    - Fix any integration issues found
+    - Ensure all existing tests pass with native implementation
+  16. Cross-validation testing (FFI vs Native)
+    - Test command: pixi run test -D USE_ZLIB=True tests/
+    - Compare outputs between FFI and native implementations
+    - Create comparative tests in test_zlib_cross_validation.mojo
+  17. Performance benchmarking
+    - Create benchmarks comparing FFI vs native performance
+    - Optimize critical paths if needed
+    - Document performance characteristics
+
+  Phase 6: Cleanup and Documentation
+
+  18. Code cleanup and optimization
+    - Review all implementations for Mojo best practices
+    - Optimize memory usage and performance bottlenecks
+    - Add comprehensive docstrings
+  19. Update build and documentation
+    - Update CLAUDE.md with native implementation details
+    - Add compilation flag documentation
+    - Update examples showing both compilation modes
+
+  Critical Implementation Notes
+
+  Key zlib Functions to Implement:
+
+  Decompression (inflate.c):
+  - inflateInit2_() - Initialize with window bits parameter
+  - inflate() - Process input chunks, handle state machine
+  - inflateEnd() - Cleanup and free resources
+
+  Compression (deflate.c):
+  - deflateInit2_() - Initialize with compression parameters
+  - deflate() - Process input chunks, manage compression state
+  - deflateEnd() - Finalize and cleanup
+
+  Support Functions:
+  - Huffman tree building (inftrees.c, trees.c)
+  - Fast path decompression (inffast.c)
+  - Utility functions (zutil.c)
+
+  Testing Strategy:
+
+  1. Unit Tests: Each implementation file gets comprehensive unit tests
+  2. Integration Tests: Existing project tests run with -D USE_ZLIB=False
+  3. Cross-Validation: Compare native vs FFI outputs on same inputs
+  4. Performance Tests: Benchmark both implementations
+  5. Format Tests: Test zlib, gzip, and raw deflate formats
+  6. Edge Cases: Test error conditions, boundary cases, large inputs
+
+  Implementation Priority:
+
+  1. Phase 2-3: Decompression (most commonly used)
+  2. Phase 4: Compression (after decompression is working)
+  3. Phase 5-6: Integration, testing, and optimization
+
+  The implementation will maintain 100% API compatibility with the existing Python-compatible interface while providing
+   a pure Mojo fallback that doesn't require linking against zlib C library.
